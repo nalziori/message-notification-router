@@ -16,15 +16,45 @@ that every decision leaves an auditable trail explaining itself.
 
 ## Results
 
+**Final: 129th of 1,983 entrants — 69.7 / 100.**
+
+![Final leaderboard placement: 129 of 1,983, score 69.7/100](docs/leaderboard.png)
+
+| Graded component | Score | |
+|---|---|---|
+| Output CSV — the 110 routed predictions | 20.4 / 30 | 68% |
+| Code zip — implementation quality | 22.2 / 30 | 74% |
+| AI judge interview — defending the design | 19.2 / 30 | 64% |
+| Chat transcript — documented process | 7.9 / 10 | 79% |
+
+Locally, before submitting:
+
 | Evaluation set | `action` | `message_type` | evidence F1 |
 |---|---|---|---|
 | 30 solved examples (`sample_messages.csv`) — **tuned against** | 93.33% | 93.33% | ~48–52% |
 | 19 held-out synthetic cases — **never used for tuning** | 84% | 84% | — |
 
-Both numbers are reported on purpose. The 30-sample set was read repeatedly
-while deriving prompt rules, so it is an optimistic estimate; the synthetic set
-was built specifically to find out how much of the gain was real. It cost ~10
-points, which is the honest generalization gap.
+### Reading these two together
+
+The local 93% and the graded 20.4/30 are not the same measurement, and treating
+the gap as a straight accuracy drop would be wrong. The local harness scores one
+narrow thing: whether the `action` and `message_type` *labels* match. The
+official rubric scores the whole submission — label correctness plus `reason`
+quality (judged by an AI grader), whether `evidence_message_ids` point at
+genuinely relevant history, and confidence calibration.
+
+`reason` quality was never measured locally at all. The harness says so in its
+own docstring, and it went unaddressed: every one of the eight tuning iterations
+optimized labels, because labels were the only thing the local loop could see.
+Evidence F1 was visible and stayed at ~50% — the weakest measured number, and
+the one most likely to have cost points on a rubric that weights it.
+
+The one comparison that *is* apples-to-apples is the two local rows: 93% on the
+set the prompt was tuned against, 84% on a set built specifically so it couldn't
+be. That ~10-point gap was measurable before submitting, and it's the reason the
+synthetic set exists. What the final score adds is that an eval which only
+watches labels will happily report 93% while the parts it isn't watching decide
+the outcome.
 
 Full run: 110/110 messages routed, ~$0.75 in API spend for the final pass.
 
