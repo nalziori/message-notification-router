@@ -1,0 +1,20 @@
+message_id,user_id,conversation_type,group_id,business_id,sender_user_id,created_at,message_text,media_type,media_id,forwarded_count,expected_action,expected_type
+synth_msg_01,u_002,personal,,,u_017,2026-08-01 12:00,"Hey, are we still on for dinner tonight around 8? No rush, just checking.",,,0,digest,personal
+synth_msg_02,u_002,personal,,,u_017,2026-08-01 12:00,Emergency -- I'm locked out and the landlord isn't picking up. Can you call me back right now?,,,0,notify,urgent
+synth_msg_03,u_002,group,group_003,,u_045,2026-08-01 12:00,"Route B parents: pickup moved to 3:45 today because of the assembly, please plan accordingly.",,,0,notify,event
+synth_msg_04,u_002,group,group_003,,u_017,2026-08-01 12:00,"Selling a barely-used badminton racket, good condition. Pickup near the school gate this Friday if anyone wants it.",,,0,digest,promotion
+synth_msg_05,u_002,group,group_001,,u_013,2026-08-01 12:00,Good morning family! Hope everyone has a peaceful and blessed day today.,,,0,digest,greeting
+synth_msg_06,u_002,group,group_001,,u_007,2026-08-01 12:00,"Fwd: Doctors say drinking warm turmeric water every morning boosts immunity, please share with family.",,,9,mute,forward
+synth_msg_08,u_008,business,,business_011,,2026-08-01 12:00,Hi! A new arrival just dropped in your size based on your last order. Check it out in the app.,,,0,digest,promotion
+synth_msg_09,u_005,business,,business_062,,2026-08-01 12:00,URGENT: Your bank account will be suspended in 2 hours. Reply with your debit card number and OTP to verify and avoid suspension.,,,0,mute,scam
+synth_msg_10,u_005,business,,business_041,,2026-08-01 12:00,CONGRATULATIONS you have been selected!! Claim your free prize now by clicking the link and entering your details!!!,,,0,mute,spam
+synth_msg_11,u_002,personal,,,u_090,2026-08-01 12:00,"hi, saw your post about tutoring, do you still have slots open",,,0,digest,unknown
+synth_msg_12,u_002,group,group_003,,u_045,2026-08-01 12:00,@u_002 quick one -- can you send the signed consent form before 5pm today? Office closes early.,,,0,notify,urgent
+synth_msg_13,u_001,business,,business_001,,2026-08-01 12:00,Your order has been delivered. Thanks for shopping with us!,,,0,digest,business_update
+synth_msg_14,u_002,group,group_001,,u_007,2026-08-01 12:00,"Fwd: Fwd: Fwd: this message has been forwarded many times, click here to win a free iPhone, forward to 10 people to activate",,,47,mute,spam
+synth_msg_15,u_002,business,,business_011,,2026-08-01 12:00,,image,synth_img_promo,0,digest,promotion
+synth_msg_16,u_005,business,,business_062,,2026-08-01 12:00,,image,synth_img_scam,0,mute,scam
+synth_msg_17,u_002,group,group_001,,u_013,2026-08-01 12:00,,image,synth_img_photo,0,digest,event
+synth_msg_18,u_002,personal,,,u_017,2026-08-01 12:00,,voice,synth_vn_casual,0,digest,personal
+synth_msg_19,u_002,personal,,,u_017,2026-08-01 12:00,,voice,synth_vn_urgent,0,notify,urgent
+synth_msg_20,u_005,business,,business_062,,2026-08-01 12:00,,voice,synth_vn_scam,0,mute,scam

@@ -1,0 +1,43 @@
+# NOTE: .gitignore has no inline comments -- a trailing "# ..." becomes part of
+# the pattern and silently disables the rule. Every comment here is on its own line.
+
+# --- secrets ---
+.env
+
+# --- python ---
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# --- generated at runtime ---
+# SQLite DBs (processed.db, ael.db) plus the image/audio/routing caches.
+# These are not just build output: the image cache holds full OCR transcriptions
+# of the organizer's media and the routing cache holds per-message analysis, so
+# committing them would leak the dataset this repo deliberately excludes.
+data/
+*.db
+
+# --- hackathon submission artifacts, not source ---
+code.zip
+
+# --- local tool state ---
+.claude/
+
+# --- Challenge-provided dataset: NOT redistributed here ---
+# The CSVs and media under dataset/ were supplied by the organizers. Their
+# licensing for redistribution is unclear, so the repo ships the schema and
+# the pipeline, not the data. See "Running this" in README.md.
+# dataset/output.csv is the exception: it is this project's own 110-row
+# result, not organizer input, so it stays in as evidence of the run.
+dataset/*
+!dataset/output.csv
+
+# --- unrelated to this project ---
+# POSCO lecture material that accumulated in docs/ while reusing this
+# project as a teaching example. Kept locally, out of the repo.
+docs/posco_agent_lecture_ko.pdf
+docs/agent_conversation_guide_ko.pdf
+docs/build_lecture_mapping_pdf.py
+docs/build_conversation_guide_pdf.py
+docs/lecture_assets/

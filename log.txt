@@ -1,0 +1,158 @@
+## [2026-08-02T12:23:30+09:00] ONBOARDING COMPLETE
+
+AGREEMENT RECORDED: <repo_root>
+Agent: Claude Code (Sonnet 5)
+Language: not yet decided (repo scaffold only so far; code/main.py still empty)
+System Time: 2026-08-02T12:23:30+09:00
+Time Remaining: 0d 21h 6m (until 2026-08-03 09:30 KST submission deadline)
+
+## [2026-08-02T12:57:54+09:00] Preprocessing pipeline: SQLite ingest + image/audio analysis + query layer
+
+User Prompt (verbatim, secrets redacted):
+claude.md에 기록된 파이프라인에 따라서 구현을 시작해줘, 그리고 필요한 mcp 연결을 나에게 문의하고 전체 프로젝트 파이프라인을 1개 이미지로 만들어서 저장해줘
+[Follow-up after MCP question]: 제시된 3번째 옵션을 사용하되 예상되는 비용을 먼저 보고할것 / 프로젝트의 dataset을 멀티모달 검색·분석에 사용할 수 있도록 전처리 파이프라인을 구현해줘 (SQLite 적재, 음성 전사, 이미지 분석, 캐시, CLI, 질의 처리 — 상세 스펙 포함)
+
+Agent Response Summary:
+No MCP connectors exist in this org's registry for LLM/vision/ASR providers, so presented an API-key-based provider choice via AskUserQuestion; user picked "Anthropic Claude + local Whisper" and asked for a cost report first. Confirmed via the Anthropic Messages API docs that audio is not a supported direct content type, so local ASR is mandatory. Reported an estimated cost (<$1 total) for ~20 image analysis calls on claude-sonnet-5 + local Whisper (free). Verified user's claim that img_016.jpg/img_025.jpg are actually WebP and img_020.jpg is actually AVIF (also found several other ".jpg" files that are actually PNG). Created a Python 3.12 venv (Python 3.14 too new for ctranslate2 wheels) and installed anthropic, pillow, pillow-avif-plugin, faster-whisper, python-dotenv. Built the full preprocessing system under code/: config.py (env/paths), db.py (CSV->SQLite, all-TEXT columns, indexed join keys), cache.py (content-hash cache + bounded-concurrency runner with retry/backoff), image_pipeline.py (Pillow decode any format -> resize -> re-encode JPEG -> Claude Sonnet 5 vision with structured JSON output for description/OCR/doc_type), audio_pipeline.py (TranscriptionProvider abstraction, LocalWhisperProvider via faster-whisper/PyAV, no system ffmpeg needed), query.py (keyword-overlap retrieval over messages+cache -> minimal-context Claude Q&A with evidence tracking), main.py (CLI: validate/preprocess --dry-run --limit/retry-failed/cache-status/query). Also fixed a real bug found during testing: message_text fields contain embedded newlines, so a naive line-count in `validate` overcounted rows (264 vs actual 110 for messages.csv) -- fixed to use csv.reader. Smoke-tested end to end without any API key: image format normalization (verified WebP/AVIF/mislabeled-PNG all correctly re-encoded to JPEG) and a real faster-whisper transcription (vn_001.mp3 -> "Had dinner, call when free, nothing urgent.", cache hit confirmed on rerun). Image analysis and query commands still need to be tested against the live API once the user sets ANTHROPIC_API_KEY. Documented environment variables, commands, data flow, cost-saving design, and cache-invalidation rules in README.md.
+
+Actions:
+* Created <repo_root>\.venv (Python 3.12)
+* pip installed: anthropic, pillow, pillow-avif-plugin, faster-whisper, python-dotenv
+* Wrote code/config.py, code/db.py, code/cache.py, code/image_pipeline.py, code/audio_pipeline.py, code/query.py, code/main.py
+* Wrote .env.example, .gitignore
+* Edited README.md (added Preprocessing & Query System section)
+* Ran: code/main.py validate, preprocess --dry-run, preprocess --limit 1 (confirmed API-key gate), and a direct audio_pipeline.process_audio() smoke test (real transcription + cache-hit verification)
+* Deleted the placeholder audio cache entry created during the smoke test
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+
+## [2026-08-02T13:15:24+09:00] Live API run: full preprocessing + query verified against real Anthropic API
+
+User Prompt (verbatim, secrets redacted):
+좋아 .env에 api키를 입력할 테니 이어서 진행하자. api키를 입력할 수 있게 띄워줘
+[Follow-up]: api 키를 입력했고 5달러 결제 해놨어 모자르면 말해
+
+Agent Response Summary:
+Created .env from .env.example and opened it in Notepad so the user could type their key themselves (never entered/viewed the key value). Confirmed the placeholder was replaced without printing the actual key. Added token-usage capture and dollar-cost reporting to image_pipeline.py/query.py/main.py (per-run cost in `preprocess`, cumulative cost in `cache-status`, per-call cost in `query`) so real spend is visible going forward. Ran the full live preprocess: 19/20 images succeeded on the first pass; img_016 failed with a JSON-truncation error because max_tokens=1024 was too small for a poster with heavy OCR text -- fixed by raising max_tokens to 4096 and adding an explicit stop_reason=="max_tokens" check, then re-ran via `retry-failed` and it succeeded. Final state: images 20/20 cached, audio 13/13 cached (local Whisper, $0). Actual cost so far: ~$0.144 for image analysis + ~$0.007 for one test query = ~$0.15 total, far under the user's $5 budget -- no action needed, told the user they're fine. Verified `query` end-to-end with a real question about scam/payment messages; retrieval correctly surfaced an HDFC Bank scam-awareness poster via its cached OCR text alongside plain-text matches, with cited evidence_message_ids. Also fixed a UnicodeEncodeError in main.py (Windows cp949 console couldn't print an em-dash in Claude's response) by adding the same UTF-8 stdout/stderr reconfigure used in the eval harnesses.
+
+Actions:
+* Created .env (from .env.example), opened via `Start-Process notepad.exe` for the user to fill in
+* Edited code/image_pipeline.py: added usage capture, raised max_tokens 1024->4096, added stop_reason check
+* Edited code/query.py: added usage capture to answer_question()
+* Edited code/main.py: added _print_run_cost() cost reporting to preprocess/cache-status/query, added UTF-8 stdout/stderr fix
+* Ran: preprocess (full, live API), retry-failed (fixed img_016), cache-status, query "scam or payment-related messages"
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+
+## [2026-08-02T13:36:23+09:00] Built and validated the notify/digest/mute router — output.csv complete
+
+User Prompt (verbatim, secrets redacted):
+바로 진행하자
+
+Agent Response Summary:
+Built code/router.py: pull_context() assembles per-message context (user profile, group membership or business relationship as applicable, cached media analysis, today's notification load, and a relevance-ranked slice of the user's own message_history + message_events reactions, capped at 12 candidates) and classify_message() sends it to Claude with a JSON-schema-constrained response (action/message_type/reason/confidence/evidence_message_ids). Added a `route` CLI command (--dry-run/--limit/--force) plus routing support in retry-failed and cache-status. Found and fixed a real concurrency bug on the first test run (shared SQLite connection across ThreadPoolExecutor workers -> "objects created in a thread" error) by giving each worker its own connection. Ran a --limit 3 smoke test and manually verified the reasoning quality was genuinely grounded (caught an OTP-phishing message disguised as personal chat by matching it to the same sender's prior reported message) before scaling up. Ran the full 110-message batch: 110/110 succeeded, ~$0.75. Discovered sample_messages.csv uses a disjoint message_id namespace from messages.csv (sample_msg_* vs msg_*), so comparing dataset/output.csv against it directly always scores 0/30 -- wrote eval/run_router_on_samples.py to run the router on sample_messages.csv's own rows instead, which is the correct way to get a real accuracy proxy. First pass: 90% action accuracy, 63% message_type accuracy, 49% evidence F1 on the 30 solved examples. Manually reviewed every miss; found one generalizable gap (opted-in repeat promotions were over-muted for repetition alone) and fixed it with a general system-prompt rule, not a sample-specific hack. Re-evaluated: action accuracy held at 90% (moved which case it missed, read as n=30 noise, not a regression) -- deliberately stopped tuning further given the problem statement's explicit warning against overfitting to visible examples. Reclassified all 110 real messages with the improved prompt via `route --force`. Final state: dataset/output.csv has 110/110 rows, exact required schema (verified via eval_harness_en.py's check_schema), sane non-degenerate action distribution (mute 55/notify 34/digest 21), no out-of-range confidence values. Total cumulative API spend across the whole session (image analysis + routing + test queries): ~$1.2, well within the user's $5 budget. Updated README.md (route command, updated data-flow section) and CLAUDE.en.md/CLAUDE.ko.md (Eval Loop Log with all 4 iterations, Decision Log with 6 grounded entries, Open Questions marked resolved where applicable) to reflect actual work done, per the AGENTS.md project contract's interview-prep expectations.
+
+Actions:
+* Wrote code/router.py (pull_context, classify_message, process_message, to_output_row, ROUTING_SCHEMA, SYSTEM_PROMPT)
+* Edited code/config.py: added ROUTING_EFFORT
+* Edited code/main.py: added cmd_route, _write_output_csv, _load_messages, _routing_cache_record; extended cmd_retry_failed and cmd_cache_status for routing; fixed the shared-SQLite-connection threading bug
+* Wrote eval/run_router_on_samples.py
+* Edited code/router.py SYSTEM_PROMPT: added the opt-in-vs-repetition guidance
+* Edited README.md, CLAUDE.en.md, CLAUDE.ko.md
+* Ran: route --dry-run, route --limit 3 (found + fixed the threading bug), route --limit 3 (retest), route (full, 110/110), eval_harness_en.py against sample_predictions.csv (before and after the prompt fix), route --force (full re-run with improved prompt), final schema/distribution sanity checks
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+
+## [2026-08-02T14:09:23+09:00] Improved message_type accuracy; built and ran a synthetic held-out test set with an HTML report
+
+User Prompt (verbatim, secrets redacted):
+전체적인 정확도를 조금더 높이고 싶다. 일단  message_type정확도를 개선해보자. 거기에 더해서 새로운 테스트 데이터셋을 만들어서 테스트 해보고 싶은데 20세트 정도의 이미지, 오디오, 텍스트를 생성해서 개선된 모델을 평가하는데 들어갈 리소스를 예측해보고 개선방향을 제시해봐
+[mid-turn]: 생성 후 테스트 전에 나한테 말해줘
+[mid-turn]: 필요하면 api를 한도 내에서 적절히 사용해도 되고, 해당 테스트 과정을 눈으로 보고 결과까지 확인할 수 잇도록 html파일을 하나 만들어줘
+[mid-turn]: html 을 만들때 직접 해볼 수 있도록 시뮬레이션을 추가해줘
+
+Agent Response Summary:
+Built a gold-vs-pred confusion matrix from the 30-sample eval and read the actual message text of every miss in the worst categories (event, promotion, greeting) to derive real, generalizable category-boundary rules rather than guessing -- added 4 disambiguation rules to router.py's system prompt. Result: message_type accuracy 63%->90% on the 30-sample eval, action accuracy 90%->86.67% (net positive; 2 of 3 new misses were pre-existing). Split synthetic-test-generation into two explicit phases per the user's mid-turn request (generate first, ask before spending on the test call) -- eval/generate_synthetic_testset.py (Pillow-drawn images, Windows-SAPI-synthesized voice notes, no API calls, free) and eval/run_synthetic_test.py (the actual API test). Generated 19 held-out cases (13 text/3 image/3 voice) reusing real dataset entities. User then said to proceed within budget and asked for an HTML report plus an interactive simulation. Ran the synthetic test: 74% action / 79% message_type -- notably lower than the 30-sample numbers, and it surfaced a real gap (personal messages over-triaged to notify even when the text explicitly said "no rush"/"nothing urgent"). Fixed with one more general system-prompt rule, re-ran: 84%/84% on the synthetic set with no regression on the 30-sample set. Reclassified all 110 real messages with the final prompt. Checked the artifact platform's available runtime capabilities before building the interactive panel -- only `downloads` and `mcp` (no connectors available) are offered, no way to call the real API live from a published page without leaking a key -- so built the "try it yourself" simulator as an explicitly-labeled client-side JS rule-based approximation of the router's logic instead of a live call. Published an HTML report (case grid with embedded base64 images/audio, expected-vs-actual pass/fail, and the simulator) as a Claude Artifact.
+
+Actions:
+* Edited code/router.py: added message_type disambiguation rules (event/business_update, promotion peer-listings, greeting-over-forward, forward-not-spam, personal-vs-unknown) and the explicit-low-urgency-framing rule; added EXTRA_MEDIA_PATHS fallback registry to get_media_context() for synthetic/test media
+* Wrote eval/generate_synthetic_testset.py, eval/run_synthetic_test.py, eval/build_report.py
+* Wrote eval/synthetic_cases.csv, eval/synthetic_predictions.csv, eval/synthetic_media/{images,audio}/*, eval/synthetic_test_report.html
+* Updated CLAUDE.en.md / CLAUDE.ko.md (Eval Loop Log iterations 5-6, 5 new Decision Log entries)
+* Ran: eval_harness scoring before/after each prompt change (30-sample set), generate_synthetic_testset.py, run_synthetic_test.py (twice, before/after the urgency-framing fix), route --force (twice, final production reclassification of all 110 messages)
+* Published eval/synthetic_test_report.html as a Claude Artifact
+* Final state verified: dataset/output.csv 110/110 rows, schema-valid, no out-of-range confidence; cumulative session API spend ~$1.6 of the user's $5 budget
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+
+## [2026-08-02T14:35:50+09:00] Internal grounding fields (accepted), key_phrase extension (reverted after regression), budget correction
+
+User Prompt (verbatim, secrets redacted):
+대체로 digest로 예상했는데 실제로 notify라서 틀리는 경우가 많은거 같네 그리고 테스트 해보니까 신뢰 신호가 부족할때 confidence 가 확떨어지고 틀리는 경우가 많네 내 생각에는 실제로 output에 들어가지는 않지만 세부 카테고리를 내부적으로 상세화해서 결정에 도움을 주는 방식으로 진행하면 좋을것 같은데
+[mid-turn]: 이제는 api사용을 최소화하도록해
+[next turn]: 개선되었으니 이것을 토대로 파이프라인을 수정하자. personal, urgent, event, ... 을 내부적으로 상위레벨 분류로 설정하고 그 하위에 대화 내용을 토대로 대화의 키포인트가 되는 단어를 하나씩 뽑아서 라우팅할 때 판단에 도움이 되게 했으면 하는데 어때
+[next turn]: 비용은 내가 5.5달러 추가해놨으니 괜찮아 지금부터는 최소한으로 사용하도록하고, 현재 사용량이 6.9달러 남은 크레딧이 3.6달러니까 코드 수정하고 한번정도 돌려볼 수 있으려나?
+
+Agent Response Summary:
+Validated the user's two observations with real data before acting: confirmed digest(gold)->notify(pred) is the single most common miss direction (3 of 7 combined misses across the 30-sample + synthetic sets), and confirmed wrong predictions carry visibly lower average confidence than correct ones (0.70 vs 0.85 across 49 cases). Implemented the user's proposed internal-scratch-field idea: added sender_trust/urgency_signal/risk_signal/repetition_signal/type_candidates as schema fields the model fills before the final action/message_type/confidence -- never written to output.csv -- plus an explicit "default to digest when notify-vs-digest is close" rule. Validated cheaply first (targeted reclassification of only the 7 previously-wrong cases: 3/7 fixed, no message_type regression) before spending on a full 30-sample check, which confirmed a real improvement with no regression: action 86.67%->93.33%, message_type 90%->93.33%. Mid-task, recalculated true cumulative session spend and discovered cache-status's "cumulative" figure was misleading (it sums current cache files, which route --force overwrites each run, so repeated full reclassifications weren't accumulating) -- true total was closer to $5.7-6.9 than the ~$2 being reported; flagged this transparently to the user before any further spending. User confirmed they'd topped up ($5 + $5.5 = $10.5 total, $6.9 used per their own console, $3.6 remaining) and asked to proceed minimally. Implemented the user's next idea (a key_phrase field grounding each type_candidate in actual quoted message text) and validated on the 30-sample set only (skipped the synthetic set to conserve the now-limited budget). Result was a real regression (93.33%->86.67% action, 93.33%->90% message_type) -- reverted key_phrase entirely, restoring the Iteration-7 prompt (the best validated version), and reclassified all 110 real messages with that reverted version. Final output.csv: 110/110 rows, schema-valid, no out-of-range confidence.
+
+Actions:
+* Edited code/router.py: added ROUTING_SCHEMA internal fields (sender_trust, urgency_signal, risk_signal, repetition_signal, type_candidates) ordered before the output fields; added corresponding SYSTEM_PROMPT guidance and the notify-vs-digest default-to-digest-under-uncertainty rule; raised max_tokens 1536->2048; captured internal fields into the cache record under an "internal" key (not read by to_output_row)
+* Edited code/router.py again: added a key_phrase field to type_candidates + prompt instruction, then reverted both after the 30-sample regression
+* Updated CLAUDE.en.md / CLAUDE.ko.md (Eval Loop Log iterations 7-8, including the negative result and the cache-status cost-tracking bug discovery)
+* Ran: targeted 7-case reclassification (cheap validation), full 30-sample eval (twice -- once confirming the internal-fields win, once catching the key_phrase regression), route --force twice (once with internal-fields-only, reverted-and-reran after the key_phrase revert)
+* Manually recomputed true cumulative session spend from every individual "cost this run" figure logged so far (~$5.7-6.9 estimate) after noticing cache-status's cumulative tracker was structurally wrong for repeated --force runs; reported this transparently to the user before continuing
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+
+## [2026-08-02T14:51:43+09:00] Final submission package prepared: code.zip, output.csv verified, docs reconciled
+
+User Prompt (verbatim, secrets redacted):
+그래 이제 마크다운들을 다시 훑어 보고 최종결과물을 준비해줘
+
+Agent Response Summary:
+Reviewed CLAUDE.en.md/CLAUDE.ko.md against actual final code state and found real staleness: Repo Layout section still described the original scaffold (code/main.py as a stub, no mention of router.py/config.py/db.py/cache.py/image_pipeline.py/audio_pipeline.py/query.py, no eval/ contents), and Open Questions still had the old 63% message_type figure. Bigger issue found while checking this: the submission instructions say "zip your code/ directory" -- but the actual working evaluation harness lived in the top-level eval/ folder, OUTSIDE code/, so it would have been silently excluded from code.zip, violating the "must include an evaluation workflow" requirement. Fixed by copying eval_harness_en.py/ko.py and run_router_on_samples.py into code/evaluation/ (previously an empty stub), fixing the relative sys.path import, and writing code/evaluation/main.py as a real CLI entry point (classify sample_messages.csv, then score; --skip-classify to re-score without API calls). While testing the new code/evaluation/ wiring, caught a second real bug: run_router_on_samples.py wasn't forcing reclassification, so it silently returned STALE cached predictions from the reverted key_phrase experiment (86.67%/90%) instead of the current validated prompt's real result -- fixed by defaulting to force=True (added a --use-cache opt-out) and regenerated code/evaluation/sample_predictions.csv, confirming the correct 93.33%/93.33% now. Rewrote CLAUDE.en.md/CLAUDE.ko.md Repo Layout sections to match reality (code/, code/evaluation/, top-level eval/ as supplementary/not-in-zip, data/, .venv/, docs/), and Open Questions with final validated numbers, resolved items, and honestly-labeled remaining gaps (evidence F1, spam/scam and event/urgent ambiguity, Whisper model size not attempted). Updated README.md (evaluation workflow section, submission checklist, routing-cache force-by-default caveat). Added code/README.md (self-contained setup/run/architecture doc, since code.zip's contents are all an AI Judge reviewer would see -- the repo-root README isn't included). Built code.zip from code/ only (excluding __pycache__/.venv/node_modules), verified its exact file listing. Did a final three-way check of all submission deliverables: code.zip (14 files, 41KB), dataset/output.csv (110/110 rows, schema-valid, non-degenerate action distribution, no out-of-range confidence), and log.txt (this file, currently maintained).
+
+Actions:
+* Copied eval/eval_harness_en.py, eval/eval_harness_ko.py, eval/run_router_on_samples.py -> code/evaluation/
+* Edited code/evaluation/run_router_on_samples.py: fixed sys.path for new location, added --use-cache flag (force=True by default)
+* Wrote code/evaluation/main.py (was an empty stub)
+* Wrote code/README.md
+* Edited README.md (Commands, new Evaluation section, Cache invalidation routing caveat, Submission checklist)
+* Edited CLAUDE.en.md / CLAUDE.ko.md (Repo Layout rewritten to match final structure, Open Questions updated with final validated numbers and resolved/open status)
+* Ran: code/evaluation/main.py --skip-classify (caught the stale-cache bug), cleared sample_msg_* routing cache, code/evaluation/main.py (real, confirmed 93.33%/93.33%)
+* Built code.zip via a Python zipfile script (code/ only, excludes __pycache__/.venv/node_modules) -- verified 14-file listing
+* Verified all 3 submission deliverables present and correct: code.zip, dataset/output.csv, log.txt
+
+Context:
+tool=Claude Code (Sonnet 5)
+branch=unknown (no git init in this repo)
+repo_root=<repo_root>
+worktree=main
+parent_agent=none
+

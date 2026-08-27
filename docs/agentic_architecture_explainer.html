@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>이 에이전트는 어떻게 만들어졌나 — 아키텍처 &amp; 에이전틱 개발 도해</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ink:#0a1615;
+    --surface:#0f201e;
+    --surface-2:#173330;
+    --surface-3:#1e3f3b;
+    --line:#25453f;
+    --line-soft:#1a2e2b;
+    --text:#eaf5f1;
+    --text-muted:#93b0a8;
+    --text-dim:#5f7d76;
+    --accent:#3fe6c4;
+    --accent-dim:#1f6f78;
+    --accent-glow: rgba(63,230,196,0.35);
+    --human:#e8a33d;
+    --critical:#ff6f6a;
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    --sans: "Pretendard Variable", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1px 1px at 24px 24px, rgba(255,255,255,0.045) 1px, transparent 0),
+      var(--ink);
+    background-size: 28px 28px;
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; } }
+
+  ::selection{ background:var(--accent); color:var(--ink); }
+  a{color:var(--accent);}
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:2px; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
+  .section{ padding:120px 0 100px; position:relative; border-bottom:1px solid var(--line-soft); }
+  .section:last-of-type{ border-bottom:none; }
+
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--accent); display:flex; align-items:center; gap:10px; margin-bottom:18px;
+  }
+  .eyebrow .rule{ width:34px; height:1px; background:var(--accent-dim); }
+  h1,h2,h3{ font-family:var(--sans); font-weight:800; letter-spacing:-0.01em; text-wrap:balance; margin:0; color:var(--text); }
+  h2{ font-size:clamp(26px,3.4vw,40px); line-height:1.22; margin-bottom:16px; }
+  h3{ font-size:18px; margin-bottom:6px; }
+  p.lead{ font-size:17px; line-height:1.7; color:var(--text-muted); max-width:66ch; margin:0 0 14px 0; }
+  p.body{ font-size:15px; line-height:1.75; color:var(--text-muted); max-width:70ch; }
+  b{color:var(--text); font-weight:700;}
+  code{ font-family:var(--mono); font-size:0.88em; color:var(--accent); background:rgba(63,230,196,0.09); padding:0.12em 0.42em; border-radius:3px; }
+
+  /* ---------- panel / blueprint frame ---------- */
+  .panel{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--line);
+    padding:26px 28px;
+  }
+  .panel .fig-tag{
+    position:absolute; top:-1px; right:-1px;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.08em; color:var(--ink);
+    background:var(--accent); padding:4px 10px;
+  }
+  .panel::before, .panel::after{
+    content:""; position:absolute; width:12px; height:12px; pointer-events:none;
+    border-color:var(--accent-dim); border-style:solid; border-width:0;
+  }
+  .panel::before{ top:-1px; left:-1px; border-top-width:2px; border-left-width:2px; }
+  .panel::after{ bottom:-1px; right:-1px; border-bottom-width:2px; border-right-width:2px; }
+
+  /* ---------- rail nav ---------- */
+  .railnav{
+    position:fixed; right:26px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:14px; z-index:50;
+  }
+  .railnav button{
+    width:9px; height:9px; border-radius:50%; background:var(--line);
+    border:1px solid var(--text-dim); cursor:pointer; padding:0; position:relative;
+  }
+  .railnav button::after{
+    content: attr(data-label);
+    position:absolute; right:20px; top:50%; transform:translateY(-50%);
+    font-family:var(--mono); font-size:11px; color:var(--text-muted);
+    white-space:nowrap; opacity:0; transition:opacity 0.15s;
+    background:var(--surface-2); border:1px solid var(--line); padding:3px 8px;
+  }
+  .railnav button:hover::after{ opacity:1; }
+  .railnav button.active{ background:var(--accent); border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-glow); }
+  @media (max-width:900px){ .railnav{ display:none; } }
+
+  /* ---------- hero ---------- */
+  .hero{ padding-top:14vh; min-height:92vh; display:flex; flex-direction:column; justify-content:center; border-bottom:1px solid var(--line-soft); }
+  .hero .kicker{ font-family:var(--mono); font-size:12.5px; letter-spacing:0.14em; color:var(--text-dim); text-transform:uppercase; margin-bottom:22px; }
+  .hero h1{ font-size:clamp(34px,6vw,64px); line-height:1.14; max-width:16ch; }
+  .hero h1 em{ color:var(--accent); font-style:normal; }
+  .hero p.lead{ margin-top:22px; font-size:19px; }
+  .hero-mini-pipe{ margin-top:56px; display:flex; align-items:center; gap:0; }
+  .hero-mini-pipe .hnode{
+    width:52px; height:52px; border:1px solid var(--line); background:var(--surface);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; position:relative;
+  }
+  .hero-mini-pipe .hnode svg{ width:22px; height:22px; stroke:var(--text-muted); }
+  .hero-mini-pipe .hline{ flex:1; min-width:24px; max-width:64px; height:1px; background:var(--line); position:relative; overflow:visible; }
+  .hero-mini-pipe .hline .dot{
+    position:absolute; top:-2.5px; width:5px; height:5px; border-radius:50%; background:var(--accent);
+    box-shadow:0 0 8px var(--accent-glow);
+    animation: travel 2.6s linear infinite;
+  }
+  @keyframes travel{ from{ left:-3px; opacity:0; } 10%{opacity:1;} 90%{opacity:1;} to{ left:100%; opacity:0; } }
+  .hero-mini-pipe .hline:nth-child(2) .dot{ animation-delay:0s; }
+  .hero-mini-pipe .hline:nth-child(4) .dot{ animation-delay:0.5s; }
+  .hero-mini-pipe .hline:nth-child(6) .dot{ animation-delay:1s; }
+  .hero-mini-pipe .hline:nth-child(8) .dot{ animation-delay:1.5s; }
+  .hero .scrolldown{ margin-top:64px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); letter-spacing:0.08em; }
+
+  /* ---------- reveal ---------- */
+  .reveal{ opacity:0; transform:translateY(18px); transition:opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* ---------- linear pipeline diagram (sections 01 / 02) ---------- */
+  .pipeline{ display:flex; align-items:stretch; margin:36px 0 0 0; overflow-x:auto; padding-bottom:6px; }
+  .pnode{
+    flex-shrink:0; width:172px; padding:18px 14px; background:var(--surface); border:1px solid var(--line);
+    cursor:pointer; text-align:left; font-family:var(--sans); color:var(--text); position:relative;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .pnode .pn-icon{ width:26px; height:26px; stroke:var(--accent); margin-bottom:12px; display:block; }
+  .pnode .pn-num{ position:absolute; top:10px; right:12px; font-family:var(--mono); font-size:10px; color:var(--text-dim); }
+  .pnode .pn-title{ font-size:13.5px; font-weight:700; line-height:1.35; margin-bottom:4px; }
+  .pnode .pn-sub{ font-family:var(--mono); font-size:10.5px; color:var(--text-dim); }
+  .pnode:hover{ border-color:var(--accent-dim); }
+  .pnode.active{ background:var(--surface-3); border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .pconnector{ flex-shrink:0; width:34px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .pconnector::before{ content:""; position:absolute; left:0; right:0; top:50%; height:1px; background:var(--line); }
+  .pconnector::after{ content:"›"; font-family:var(--mono); color:var(--text-dim); font-size:16px; background:var(--ink); position:relative; padding:0 2px;}
+
+  .pdetail{
+    margin-top:18px; padding:22px 26px; background:var(--surface-2); border:1px solid var(--line);
+    border-left:2px solid var(--accent); min-height:74px;
+  }
+  .pdetail .pd-title{ font-family:var(--mono); font-size:11px; letter-spacing:0.06em; color:var(--accent); text-transform:uppercase; margin-bottom:8px; }
+  .pdetail p{ margin:0; color:var(--text-muted); font-size:14.5px; line-height:1.65; }
+
+  /* ---------- compare block ---------- */
+  .compare{ display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:28px; }
+  @media (max-width:820px){ .compare{ grid-template-columns:1fr; } }
+  .compare .cbox{ padding:22px 24px; border:1px solid var(--line); background:var(--surface); }
+  .compare .cbox.std{ opacity:0.86; }
+  .compare .cbox.real{ border-color:var(--accent-dim); }
+  .compare .cbox h4{ font-family:var(--mono); font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-dim); margin:0 0 14px 0; }
+  .compare .crow{ display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-top:1px solid var(--line-soft); font-size:13.5px; color:var(--text-muted); }
+  .compare .crow:first-of-type{ border-top:none; }
+  .compare .crow svg{ width:15px; height:15px; flex-shrink:0; margin-top:2px; stroke:var(--text-dim); }
+  .compare .cbox.real .crow svg{ stroke:var(--accent); }
+  .callout{
+    margin-top:22px; padding:18px 22px; background:rgba(63,230,196,0.06); border:1px solid var(--accent-dim);
+    font-size:14.5px; line-height:1.7; color:var(--text-muted); max-width:78ch;
+  }
+  .callout b{color:var(--text);}
+
+  /* ---------- simulator ---------- */
+  .simcards{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:26px; }
+  @media (max-width:900px){ .simcards{ grid-template-columns:repeat(2,1fr); } }
+  .simcard{
+    text-align:left; background:var(--surface); border:1px solid var(--line); padding:16px 16px; cursor:pointer;
+    color:var(--text); font-family:var(--sans); transition:border-color 0.2s, background 0.2s;
+  }
+  .simcard svg{ width:22px; height:22px; stroke:var(--accent); margin-bottom:10px; }
+  .simcard .sc-title{ font-size:13.5px; font-weight:700; margin-bottom:5px; line-height:1.4; }
+  .simcard .sc-sub{ font-family:var(--mono); font-size:10px; color:var(--text-dim); }
+  .simcard:hover{ border-color:var(--accent-dim); }
+  .simcard.active{ background:var(--surface-3); border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+
+  .simstage{ display:flex; align-items:center; margin-top:30px; overflow-x:auto; }
+  .simstage .snode{
+    flex-shrink:0; width:130px; height:78px; border:1px solid var(--line); background:var(--surface);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    font-family:var(--mono); font-size:10px; color:var(--text-dim); text-align:center; padding:0 8px;
+    transition: border-color 0.25s, color 0.25s, background 0.25s;
+  }
+  .simstage .snode svg{ width:18px; height:18px; stroke:var(--text-dim); transition:stroke 0.25s; }
+  .simstage .snode.live{ border-color:var(--accent); color:var(--accent); background:var(--surface-3); }
+  .simstage .snode.live svg{ stroke:var(--accent); }
+  .simstage .snode.done{ border-color:var(--accent-dim); color:var(--text-muted); }
+  .simstage .sline{ flex-shrink:0; width:26px; height:1px; background:var(--line); }
+
+  .simreadout{ margin-top:22px; display:grid; grid-template-columns:1.4fr 1fr; gap:18px; }
+  @media (max-width:820px){ .simreadout{ grid-template-columns:1fr; } }
+  .simlog{ background:var(--surface); border:1px solid var(--line); padding:20px 22px; min-height:220px; }
+  .simlog .logline{
+    font-size:13.5px; line-height:1.6; color:var(--text-muted); padding:9px 0; border-top:1px solid var(--line-soft);
+    opacity:0; transform:translateX(-6px); transition:opacity 0.4s, transform 0.4s;
+  }
+  .simlog .logline:first-child{ border-top:none; }
+  .simlog .logline.shown{ opacity:1; transform:none; }
+  .simlog .logline b{ color:var(--accent); font-family:var(--mono); font-size:11px; text-transform:uppercase; margin-right:8px; }
+  .simresult{ background:var(--surface); border:1px solid var(--line); padding:20px 22px; display:flex; flex-direction:column; gap:12px; align-items:flex-start; justify-content:center; }
+  .simresult .action-badge{
+    font-family:var(--mono); font-weight:700; font-size:20px; letter-spacing:0.04em; padding:8px 16px;
+    border:1px solid var(--accent); color:var(--accent); opacity:0; transition:opacity 0.4s;
+  }
+  .simresult .action-badge.shown{ opacity:1; }
+  .simresult .action-badge.mute{ border-color:var(--critical); color:var(--critical); }
+  .simresult .action-badge.digest{ border-color:var(--human); color:var(--human); }
+  .simresult .reason{ font-size:13.5px; color:var(--text-muted); line-height:1.6; opacity:0; transition:opacity 0.4s 0.15s; }
+  .simresult .reason.shown{ opacity:1; }
+  .simresult .conf{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+  .sim-disclaimer{ margin-top:16px; font-family:var(--mono); font-size:10.5px; color:var(--text-dim); letter-spacing:0.02em; }
+  .runbtn{
+    margin-top:20px; font-family:var(--mono); font-size:12.5px; letter-spacing:0.05em; text-transform:uppercase;
+    background:var(--accent); color:var(--ink); border:none; padding:11px 22px; cursor:pointer; font-weight:700;
+  }
+  .runbtn:disabled{ background:var(--surface-3); color:var(--text-dim); cursor:not-allowed; }
+
+  /* ---------- radial loop ---------- */
+  .radialwrap{ display:grid; grid-template-columns:auto 1fr; gap:44px; align-items:center; margin-top:34px; }
+  @media (max-width:860px){ .radialwrap{ grid-template-columns:1fr; justify-items:center; } }
+  .radial{ position:relative; width:360px; height:360px; flex-shrink:0; }
+  .radial svg{ width:100%; height:100%; }
+  .radial .rtick{ cursor:pointer; }
+  .radial .rtick circle{ fill:var(--surface); stroke:var(--line); stroke-width:1.5; transition:fill 0.2s, stroke 0.2s; }
+  .radial .rtick:hover circle, .radial .rtick.active circle{ stroke:var(--accent); fill:var(--surface-3); }
+  .radial .rtick.critical.active circle{ stroke:var(--critical); }
+  .radial .rtick text{ font-family:var(--mono); font-size:11px; fill:var(--text-dim); }
+  .radial .rtick.active text, .radial .rtick:hover text{ fill:var(--text); }
+  .radial .rcenter{ font-family:var(--mono); }
+  .radial .rcenter .rc-big{ font-size:30px; font-weight:700; fill:var(--accent); }
+  .radial .rc-label{ font-size:10px; fill:var(--text-dim); letter-spacing:0.05em; }
+
+  .riteminfo{ min-height:220px; }
+  .riteminfo .ri-tag{ font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:10px; }
+  .riteminfo h3{ margin-bottom:14px; }
+  .turn{ display:flex; gap:12px; margin-bottom:10px; align-items:flex-start; }
+  .turn .who{ flex-shrink:0; width:64px; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; padding-top:9px; text-align:right; color:var(--text-dim); }
+  .turn.agent .who{ color:var(--accent); }
+  .turn .bub{ background:var(--surface); border:1px solid var(--line); padding:10px 14px; font-size:13.5px; line-height:1.6; color:var(--text-muted); flex:1; }
+  .turn.agent .bub{ border-color:var(--accent-dim); }
+  .ri-metric{ font-family:var(--mono); font-size:12px; color:var(--text-dim); margin-top:6px; }
+  .ri-metric b{ color:var(--accent); font-family:var(--mono); }
+
+  /* ---------- role split ---------- */
+  .roles{ display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:30px; }
+  @media (max-width:760px){ .roles{ grid-template-columns:1fr; } }
+  .rolecol{ padding:24px 26px; border:1px solid var(--line); background:var(--surface); }
+  .rolecol .rc-head{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .rolecol .rc-head svg{ width:24px; height:24px; stroke:var(--accent); }
+  .rolecol.human .rc-head svg{ stroke:var(--human); }
+  .rolecol .rc-head h3{ margin:0; }
+  .rolecol ul{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:11px; }
+  .rolecol li{ padding-left:18px; position:relative; font-size:14px; line-height:1.6; color:var(--text-muted); }
+  .rolecol li::before{ content:"—"; position:absolute; left:0; color:var(--text-dim); }
+
+  /* ---------- closing ---------- */
+  .closing{ text-align:left; }
+  .stats{ display:flex; gap:16px; flex-wrap:wrap; margin-top:30px; }
+  .stat{ border:1px solid var(--line); background:var(--surface); padding:16px 22px; min-width:150px; }
+  .stat .snum{ font-family:var(--mono); font-size:24px; font-weight:700; color:var(--accent); }
+  .stat .slabel{ font-size:12px; color:var(--text-dim); margin-top:6px; }
+  footer{ padding:50px 0 90px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <symbol id="i-text" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5h16v10H9l-4 4v-4H4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="12" x2="13" y2="12"/>
+  </symbol>
+  <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.5-5.5L9 17"/>
+  </symbol>
+  <symbol id="i-voice" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/>
+  </symbol>
+  <symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>
+  </symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h1M15 9h1M8 15h1M15 15h1M9 12h6"/><path d="M12 4v16"/>
+  </symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/>
+  </symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.5l2.4 2.4L16 9.5"/>
+  </symbol>
+  <symbol id="i-human" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="7.5" r="3.3"/><path d="M5 21c0-4.4 3.1-7 7-7s7 2.6 7 7"/>
+  </symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M7 9l3 3-3 3"/><line x1="12" y1="15" x2="17" y2="15"/>
+  </symbol>
+  <symbol id="i-loop" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>
+  </symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>
+  </symbol>
+  <symbol id="i-bug" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="7" width="8" height="11" rx="4"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="4" y1="10" x2="8" y2="10"/><line x1="16" y1="10" x2="20" y2="10"/><line x1="4" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="20" y2="16"/>
+  </symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 3h6M10 3v6l-5.5 9a1.5 1.5 0 0 0 1.3 2.3h12.4a1.5 1.5 0 0 0 1.3-2.3L14 9V3"/><line x1="7.5" y1="14" x2="16.5" y2="14"/>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 10h9a5.5 5.5 0 0 1 0 11h-2"/><path d="M8 5L3 10l5 5"/>
+  </symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/>
+  </symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3l10 18H2z"/><line x1="12" y1="10" x2="12" y2="14.5"/><circle cx="12" cy="17.3" r="0.4" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2z"/>
+  </symbol>
+</svg>
+
+<nav class="railnav" id="railnav">
+  <button data-target="hero" data-label="HOME" class="active"></button>
+  <button data-target="s01" data-label="표준 아키텍처"></button>
+  <button data-target="s02" data-label="실제 파이프라인"></button>
+  <button data-target="s03" data-label="시뮬레이터"></button>
+  <button data-target="s04" data-label="대응·차이"></button>
+  <button data-target="s05" data-label="개발 루프"></button>
+  <button data-target="s06" data-label="역할 분담"></button>
+  <button data-target="s07" data-label="마무리"></button>
+</nav>
+
+<main>
+
+  <section class="section hero" id="hero">
+    <div class="wrap">
+      <div class="kicker">[ AGENTIC BUILD LOG ] · HackerRank Orchestrate · 2026.08</div>
+      <h1>이 에이전트는<br><em>어떻게</em> 만들어졌나</h1>
+      <p class="lead">메시지 알림 라우터의 아키텍처·파이프라인을, 표준 AI 에이전트 설계와 나란히 놓고 도해로 설명한다.<br>그리고 그 구조가 실제로 만들어진 8번의 반복 — 사람과 Claude가 주고받은 판단의 흐름까지.</p>
+      <div class="hero-mini-pipe" aria-hidden="true">
+        <div class="hnode"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#i-text"/></svg></div>
+        <div class="hline"><span class="dot"></span></div>
+        <div class="hnode"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#i-db"/></svg></div>
+        <div class="hline"><span class="dot"></span></div>
+        <div class="hnode"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#i-brain"/></svg></div>
+        <div class="hline"><span class="dot"></span></div>
+        <div class="hnode"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#i-check"/></svg></div>
+        <div class="hline"><span class="dot"></span></div>
+        <div class="hnode"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#i-out"/></svg></div>
+      </div>
+      <div class="scrolldown">↓ SCROLL</div>
+    </div>
+  </section>
+
+  <section class="section" id="s01">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 01 — REFERENCE MODEL</div>
+      <h2 class="reveal">표준 AI 에이전트 아키텍처</h2>
+      <p class="lead reveal">널리 쓰이는 LLM 에이전트 설계를 6개 노드로 정리했다. 각 노드를 클릭하면 설명이 펼쳐진다.</p>
+      <div class="panel reveal">
+        <span class="fig-tag">REFERENCE</span>
+        <div class="pipeline" id="std-pipeline"></div>
+        <div class="pdetail" id="std-detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="s02">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 02 — AS BUILT</div>
+      <h2 class="reveal">이 에이전트의 실제 파이프라인</h2>
+      <p class="lead reveal">같은 6개 역할 중 5개가 실제 모듈로 대응된다 — 이름은 실제 코드의 파일·함수명이다.</p>
+      <div class="panel reveal">
+        <span class="fig-tag">AS BUILT</span>
+        <div class="pipeline" id="real-pipeline"></div>
+        <div class="pdetail" id="real-detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="s03">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 03 — TRY IT</div>
+      <h2 class="reveal">직접 돌려보기: 메시지 하나를 파이프라인에 흘려보낸다</h2>
+      <p class="lead reveal">메시지를 하나 고르고 실행하면, 위 파이프라인을 실제로 거치며 어떤 근거가 쌓여 어떤 판단에 이르는지 단계별로 보여준다.</p>
+      <div class="simcards" id="sim-cards"></div>
+      <div class="panel reveal" style="margin-top:26px;">
+        <span class="fig-tag">SIMULATION</span>
+        <div class="simstage" id="sim-stage"></div>
+        <button class="runbtn" id="sim-run" disabled>메시지를 먼저 선택하세요</button>
+        <div class="simreadout">
+          <div class="simlog" id="sim-log"></div>
+          <div class="simresult" id="sim-result">
+            <div class="action-badge" id="sim-badge">—</div>
+            <div class="reason" id="sim-reason"></div>
+            <div class="conf" id="sim-conf"></div>
+          </div>
+        </div>
+        <div class="sim-disclaimer">※ 룰 기반 클라이언트 시뮬레이션입니다. 실제 모델(Claude Sonnet 5)을 호출하지 않으며, 실제 시스템의 판단 로직을 단순화해 재현한 것입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="s04">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 04 — DELTA</div>
+      <h2 class="reveal">표준 ↔ 실제, 무엇이 다른가</h2>
+      <p class="lead reveal">가장 큰 차이는 <b>4번 노드, 도구 사용</b>이다. 표준은 런타임에 LLM이 도구를 반복 호출하지만, 우리는 도구 호출을 LLM 호출 이전에 전부 끝낸다.</p>
+      <div class="compare reveal">
+        <div class="cbox std">
+          <h4>표준 — 런타임 자율 루프</h4>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-brain"/></svg>LLM이 스스로 어떤 도구를 쓸지 판단</div>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-out"/></svg>도구 호출 → 결과 관찰 → 다시 판단, 여러 차례 반복</div>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-alert"/></svg>메시지마다 도구 호출 횟수·순서가 달라질 수 있음</div>
+        </div>
+        <div class="cbox real">
+          <h4>실제 — 결정론적 선실행</h4>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-db"/></svg>파이프라인이 컨텍스트를 전부 먼저 조립</div>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg>LLM은 완성된 컨텍스트에 대해 딱 1회, 스키마 제약 분류만</div>
+          <div class="crow"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg>같은 입력 → 같은 종류의 근거, 항상 재현 가능</div>
+        </div>
+      </div>
+      <div class="callout reveal"><b>왜 자유도를 뺐는가:</b> 신뢰성(같은 입력엔 같은 근거) · 평가 가능성(무엇을 보고 판단했는지 항상 재현) · 비용/지연(메시지당 파이프라인 1회 + LLM 호출 1회) · 결정론을 요구하는 제출 규약 — 이 네 가지 때문에 의도적으로 런타임 자유 루프를 배제했다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="s05">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 05 — WHERE THE LOOP ACTUALLY LIVES</div>
+      <h2 class="reveal">진짜 에이전트 루프는 개발 타임에 있었다</h2>
+      <p class="lead reveal">표준 아키텍처 5번, <b>관찰→재계획 루프</b>가 런타임 대신 <b>사람 + Claude Code의 협업</b>으로 옮겨갔다. 점을 클릭하면 그 반복에서 오간 판단이 펼쳐진다.</p>
+      <div class="radialwrap reveal">
+        <div class="radial">
+          <svg viewBox="0 0 360 360" id="radial-svg"></svg>
+        </div>
+        <div class="riteminfo panel">
+          <span class="fig-tag">ITERATION</span>
+          <div class="ri-tag" id="ri-tag">반복 1 / 8</div>
+          <h3 id="ri-title">버그를 스스로 발견하고 고치다</h3>
+          <div id="ri-turns"></div>
+          <div class="ri-metric" id="ri-metric"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="s06">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 06 — DIVISION OF LABOR</div>
+      <h2 class="reveal">사람이 한 일 / Claude가 한 일</h2>
+      <div class="roles reveal">
+        <div class="rolecol human">
+          <div class="rc-head"><svg viewBox="0 0 24 24"><use href="#i-human"/></svg><h3>사람</h3></div>
+          <ul>
+            <li>결과를 직접 읽고 패턴을 발견 (digest→notify 편향, confidence–정확도 상관관계)</li>
+            <li>개선 방향과 우선순위 제시</li>
+            <li>제안된 다음 아이디어를 승인</li>
+          </ul>
+        </div>
+        <div class="rolecol">
+          <div class="rc-head"><svg viewBox="0 0 24 24"><use href="#i-agent"/></svg><h3>Claude</h3></div>
+          <ul>
+            <li>버그·이상 신호를 스스로 감지하고 원인을 끝까지 조사</li>
+            <li>가설을 구조(스키마·규칙)로 구현하고 측정으로 검증</li>
+            <li>퇴보를 스스로 확인하고 먼저 보고한 뒤 즉시 롤백</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section closing" id="s07">
+    <div class="wrap">
+      <div class="eyebrow"><span class="rule"></span>FIG. 07 — CLOSING</div>
+      <h2 class="reveal">가장 중요한 산출물은 output.csv가 아니다</h2>
+      <p class="lead reveal">"관찰 → 가설 → 구현 → 검증 → 반영or롤백"을 8번 반복한 <b>개발 루프 그 자체</b>다. 표준 에이전트 아키텍처가 설명하는 자율 루프를, 이 프로젝트는 런타임 대신 Claude Code와의 협업이라는 형태로 개발 타임에 구현했다.</p>
+      <div class="stats reveal">
+        <div class="stat"><div class="snum">93.33%</div><div class="slabel">action 정확도</div></div>
+        <div class="stat"><div class="snum">93.33%</div><div class="slabel">message_type 정확도</div></div>
+        <div class="stat"><div class="snum">8</div><div class="slabel">기록된 반복</div></div>
+        <div class="stat"><div class="snum">110/110</div><div class="slabel">output.csv 행</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">CLAUDE.ko.md §7–8의 실제 반복·의사결정 로그를 바탕으로 재구성 · 시뮬레이터는 룰 기반 클라이언트 근사치, 실제 모델 호출 아님</div>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  // ---------- rail nav + reveal ----------
+  var sections = Array.from(document.querySelectorAll('.section'));
+  var railBtns = Array.from(document.querySelectorAll('.railnav button'));
+  railBtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      document.getElementById(b.dataset.target).scrollIntoView({behavior:'smooth'});
+    });
+  });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        e.target.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+        var btn = railBtns.find(function(b){ return b.dataset.target === e.target.id; });
+        if(btn){ railBtns.forEach(function(x){x.classList.remove('active');}); btn.classList.add('active'); }
+      }
+    });
+  }, {threshold:0.35});
+  sections.forEach(function(s){ io.observe(s); });
+
+  // ---------- pipeline builder ----------
+  function buildPipeline(containerId, detailId, nodes){
+    var container = document.getElementById(containerId);
+    var detail = document.getElementById(detailId);
+    nodes.forEach(function(n, i){
+      if(i > 0){
+        var conn = document.createElement('div');
+        conn.className = 'pconnector';
+        container.appendChild(conn);
+      }
+      var btn = document.createElement('button');
+      btn.className = 'pnode';
+      btn.innerHTML =
+        '<span class="pn-num">0' + (i+1) + '</span>' +
+        '<svg class="pn-icon" viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#' + n.icon + '"/></svg>' +
+        '<div class="pn-title">' + n.title + '</div>' +
+        '<div class="pn-sub">' + n.sub + '</div>';
+      btn.addEventListener('click', function(){
+        container.querySelectorAll('.pnode').forEach(function(x){ x.classList.remove('active'); });
+        btn.classList.add('active');
+        detail.innerHTML = '<div class="pd-title">' + n.title + '</div><p>' + n.detail + '</p>';
+      });
+      container.appendChild(btn);
+      if(i === 0){ btn.click(); }
+    });
+  }
+
+  buildPipeline('std-pipeline', 'std-detail', [
+    {icon:'i-text', title:'지각', sub:'Perception', detail:'원시 입력(텍스트·이미지·음성 등)을 모델이 다룰 수 있는 형태로 정규화한다.'},
+    {icon:'i-db', title:'기억', sub:'Memory', detail:'단기 작업 컨텍스트와 장기/외부 지식에 대한 검색을 담당한다.'},
+    {icon:'i-brain', title:'계획·추론', sub:'Planning / Reasoning', detail:'목표를 하위 작업으로 분해하고 사고 과정을 명시화한다.'},
+    {icon:'i-out', title:'도구 사용·행동', sub:'Tool Use / Action', detail:'외부 API·DB·코드 실행으로 환경에 직접 개입한다.'},
+    {icon:'i-loop', title:'관찰→재계획', sub:'Observe → Replan', detail:'행동 결과를 보고 다음 스텝을 결정하며, 목표 달성까지 반복한다.'},
+    {icon:'i-check', title:'출력·자기평가', sub:'Output / Self-eval', detail:'최종 산출물을 생성하고 피드백으로 스스로 개선한다.'},
+  ]);
+
+  buildPipeline('real-pipeline', 'real-detail', [
+    {icon:'i-image', title:'미디어 정규화', sub:'image_pipeline.py / audio_pipeline.py', detail:'이미지는 MIME 감지→디코드→JPEG 재인코딩 후 OCR·설명, 음성은 로컬 faster-whisper로 전사한다. 표준의 "지각"에 대응.'},
+    {icon:'i-db', title:'컨텍스트 조립', sub:'router.py — pull_context()', detail:'수신자 프로필, 그룹/비즈니스 관계, 캐시된 미디어 분석, 관련성 순 이력을 조립한다. 표준의 "기억"에 대응 — 임베딩 대신 설명 가능한 휴리스틱 검색.'},
+    {icon:'i-brain', title:'구조화된 추론', sub:'router.py — classify_message()', detail:'sender_trust 등 내부 스키마 필드를 최종 판단 전에 강제로 채운다. 표준의 "계획·추론"에 대응 — 자유형식 대신 카테고리형 구조.'},
+    {icon:'i-check', title:'분류 (1회 호출)', sub:'Claude Sonnet 5, JSON schema', detail:'이미 조립된 컨텍스트에 대해 딱 한 번, 스키마로 제약된 분류를 수행한다. 표준의 "도구 사용"이 없는 대신 여기서 최종 판단만 내린다.'},
+    {icon:'i-out', title:'출력 + 평가', sub:'main.py / code/evaluation/', detail:'모든 메시지가 output.csv에 정확히 1행 기록되고(실패해도 fallback), 별도 하네스가 30건 정답 대비 채점한다. 표준의 "출력·자기평가"에 대응 — 런타임이 아닌 오프라인 배치.'},
+  ]);
+
+  // ---------- simulator ----------
+  var messages = [
+    {
+      icon:'i-text', title:'가족 단톡방 — 저녁 약속', sub:'personal · group · text',
+      text:'"오늘 저녁 7시에 이모네서 밥 먹기로 했어~ 다들 올 수 있지?"',
+      steps:[
+        {label:'지각', text:'텍스트 메시지 그대로 사용 — 별도 정규화 불필요.'},
+        {label:'기억', text:'같은 그룹의 최근 이력 조회: 이 사용자는 이 그룹 메시지에 평균 8분 내 응답.'},
+        {label:'추론', text:'sender_trust=verified_close · urgency_signal=명시적 오늘 일정 · risk_signal=none.'},
+      ],
+      action:'notify', type:'personal', reason:'가까운 가족 그룹의 오늘 일정 확정 메시지 — 응답 이력상 빠른 참여가 기대됨.', conf:0.91,
+    },
+    {
+      icon:'i-alert', title:'미인증 발신자 — 결제 재확인', sub:'business · unverified · text',
+      text:'"고객님 결제가 확인되지 않았습니다. 아래 링크에서 즉시 재입력해주세요: bit.ly/xxxx"',
+      steps:[
+        {label:'지각', text:'텍스트 메시지 그대로 사용.'},
+        {label:'기억', text:'이 발신자와의 user_business_history 없음 — 사전 거래/주문 이력 0건.'},
+        {label:'추론', text:'sender_trust=unverified_no_relationship · risk_signal=clear_scam_pattern (단축링크+긴급 결제 유도).'},
+      ],
+      action:'mute', type:'scam', reason:'미인증 발신자의 결제정보 탈취 패턴 — 사전 관계 없음, 링크 재입력 유도는 전형적 스캠 신호.', conf:0.95,
+    },
+    {
+      icon:'i-image', title:'동네 카페 — 신메뉴 포스터', sub:'business · image',
+      text:'[이미지 메시지 — OCR: "가을 신메뉴 출시, 이번 주 20% 할인"]',
+      steps:[
+        {label:'지각', text:'이미지 디코드→OCR·설명: "가을 신메뉴 출시, 이번 주 20% 할인" + 포스터 디자인.'},
+        {label:'기억', text:'user_business_history 조회: 최근 3회 이 카페에서 주문한 이력 확인.'},
+        {label:'추론', text:'sender_trust=verified_engaged_customer · urgency_signal=낮음 · repetition_signal=opted-in 유사 프로모션 반복.'},
+      ],
+      action:'digest', type:'promotion', reason:'자주 이용하는 카페의 프로모션 — 유용하지만 긴급하지 않아 다이제스트로 배치.', conf:0.83,
+    },
+    {
+      icon:'i-voice', title:'학교 알림 그룹 — 음성 공지', sub:'group · voice',
+      text:'[음성 메시지 — 전사: "내일 준비물은 색종이와 가위입니다"]',
+      steps:[
+        {label:'지각', text:'faster-whisper 로컬 전사: "내일 준비물은 색종이와 가위입니다".'},
+        {label:'기억', text:'그룹멤버십 조회: 학부모 공지 그룹, 최근 공지 대부분 열람함.'},
+        {label:'추론', text:'urgency_signal=명시적 내일 일정 · type_candidates=[event(0.7), personal(0.2), announcement(0.1)].'},
+      ],
+      action:'notify', type:'event', reason:'내일 준비물 안내 — 놓치면 곤란한 학사 공지, 명시적 시한이 있음.', conf:0.88,
+    },
+  ];
+
+  var simCards = document.getElementById('sim-cards');
+  var simStage = document.getElementById('sim-stage');
+  var runBtn = document.getElementById('sim-run');
+  var simLog = document.getElementById('sim-log');
+  var simBadge = document.getElementById('sim-badge');
+  var simReason = document.getElementById('sim-reason');
+  var simConf = document.getElementById('sim-conf');
+  var selected = null;
+  var running = false;
+
+  var stageDefs = [
+    {icon:'i-image', label:'지각'},
+    {icon:'i-db', label:'기억'},
+    {icon:'i-brain', label:'추론'},
+    {icon:'i-check', label:'분류'},
+    {icon:'i-out', label:'출력'},
+  ];
+  stageDefs.forEach(function(sd, i){
+    if(i > 0){
+      var l = document.createElement('div'); l.className='sline'; simStage.appendChild(l);
+    }
+    var n = document.createElement('div');
+    n.className = 'snode';
+    n.id = 'snode-' + i;
+    n.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#' + sd.icon + '"/></svg>' + sd.label;
+    simStage.appendChild(n);
+  });
+
+  messages.forEach(function(m, i){
+    var c = document.createElement('button');
+    c.className = 'simcard';
+    c.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><use href="#' + m.icon + '"/></svg>' +
+      '<div class="sc-title">' + m.title + '</div><div class="sc-sub">' + m.sub + '</div>';
+    c.addEventListener('click', function(){
+      if(running) return;
+      simCards.querySelectorAll('.simcard').forEach(function(x){ x.classList.remove('active'); });
+      c.classList.add('active');
+      selected = m;
+      runBtn.disabled = false;
+      runBtn.textContent = '실행 →';
+      resetStage();
+      simLog.innerHTML = '';
+      simBadge.className = 'action-badge'; simBadge.textContent = '—';
+      simReason.className = 'reason'; simReason.textContent = '';
+      simConf.textContent = '';
+    });
+    simCards.appendChild(c);
+  });
+
+  function resetStage(){
+    for(var i=0;i<5;i++){ var n = document.getElementById('snode-'+i); n.classList.remove('live','done'); }
+  }
+
+  function addLog(label, text){
+    var d = document.createElement('div');
+    d.className = 'logline';
+    d.innerHTML = '<b>' + label + '</b>' + text;
+    simLog.appendChild(d);
+    requestAnimationFrame(function(){ d.classList.add('shown'); });
+  }
+
+  runBtn.addEventListener('click', function(){
+    if(!selected || running) return;
+    running = true;
+    runBtn.disabled = true;
+    runBtn.textContent = '실행 중…';
+    resetStage();
+    simLog.innerHTML = '';
+    simBadge.className = 'action-badge'; simBadge.textContent = '—';
+    simReason.className = 'reason'; simReason.textContent = '';
+    simConf.textContent = '';
+
+    var m = selected;
+    var order = [0,1,2,3,4];
+    var delay = 0;
+    order.forEach(function(idx, i){
+      setTimeout(function(){
+        for(var k=0;k<5;k++){ var n=document.getElementById('snode-'+k); n.classList.remove('live'); }
+        var node = document.getElementById('snode-'+idx);
+        node.classList.add('live');
+        if(idx < 3){
+          addLog(m.steps[idx].label, m.steps[idx].text);
+        } else if(idx === 3){
+          addLog('분류', '내부 신호를 바탕으로 action=' + m.action + ' / message_type=' + m.type + ' 결정.');
+        } else {
+          addLog('출력', 'output.csv에 1행 기록.');
+          node.classList.remove('live'); node.classList.add('done');
+          simBadge.textContent = m.action.toUpperCase();
+          simBadge.classList.add('shown');
+          if(m.action === 'mute') simBadge.classList.add('mute');
+          if(m.action === 'digest') simBadge.classList.add('digest');
+          simReason.textContent = m.reason;
+          simReason.classList.add('shown');
+          simConf.textContent = 'confidence ' + m.conf.toFixed(2) + ' · message_type: ' + m.type;
+          running = false;
+          runBtn.disabled = false;
+          runBtn.textContent = '다시 실행 →';
+        }
+        if(i>0){ document.getElementById('snode-'+order[i-1]).classList.add('done'); document.getElementById('snode-'+order[i-1]).classList.remove('live'); }
+      }, delay);
+      delay += 900;
+    });
+  });
+
+  // ---------- radial loop ----------
+  var iterations = [
+    {label:'버그 발견', icon:'i-bug', title:'버그를 스스로 발견하고 고치다', metric:'0/3 → 3/3 성공', critical:false,
+      turns:[['human','"route --limit 3로 먼저 작게 테스트해보자."'],['agent','ThreadPoolExecutor가 SQLite 커넥션을 공유한 게 원인임을 스스로 특정 → 워커마다 커넥션 분리 → 재실행 성공.']]},
+    {label:'근거 대조', icon:'i-check', title:'원본과 대조해 신뢰성 확인', metric:'110건 전체 실행', critical:false,
+      turns:[['agent','3건을 원본 텍스트와 직접 비교 — OTP 피싱을 과거 신고 이력과 매칭해 정확히 잡아낸 것을 확인한 뒤에야 규모를 키움.']]},
+    {label:'ID 불일치 발견', icon:'i-alert', title:'채점이 이상하다는 걸 알아채다', metric:'baseline 90%/63%/49%', critical:false,
+      turns:[['human','"30건 정답 세트 기준으로 채점해줘."'],['agent','0/30이라는 결과를 이상하게 여겨 id 체계를 조사 → 서로 다른 네임스페이스임을 발견 → 채점 스크립트 재작성.']]},
+    {label:'일반 규칙 수정', icon:'i-wrench', title:'특정 사례가 아닌 일반 규칙으로', metric:'과적합 우려로 튜닝 중단', critical:false,
+      turns:[['agent','옵트인 프로모션 과다 mute 문제를 일반 규칙으로 수정, 30건 세트 정체 시점에 튜닝을 의도적으로 멈춤.']]},
+    {label:'오답 정독', icon:'i-doc', title:'오답 텍스트를 전부 읽고 규칙화', metric:'type 63%→90%', critical:false,
+      turns:[['human','"message_type 정확도(63%)가 낮은데, 개선해줘."'],['agent','오답률 높은 카테고리의 실제 텍스트를 전부 정독 → 일반화 가능한 규칙 4개 도출.']]},
+    {label:'held-out 구축', icon:'i-flask', title:'진짜 held-out 세트로 재검증', metric:'74%/79% → 84%/84%', critical:false,
+      turns:[['agent','튜닝에 한 번도 안 쓰인 합성 19건을 새로 구축 → "no rush" 저긴급 표현 과소반영 갭을 발견하고 수정.']]},
+    {label:'내부 추론 필드', icon:'i-brain', title:'패턴을 스키마 구조로 번역', metric:'action 86.67%→93.33%', critical:false,
+      turns:[['human','"digest인데 notify로 틀린 경우가 많고, confidence도 낮아 보여."'],['agent','내부 전용 스키마 필드 5개 설계·구현 + "애매하면 digest" 규칙 추가 → 검증.']]},
+    {label:'퇴보 → 롤백', icon:'i-undo', title:'실패를 스스로 인정하고 되돌리다', metric:'93.33%→86.67% (퇴보) → 롤백', critical:true,
+      turns:[['human','"key_phrase 필드도 추출하게 해보면 어떨까?"'],['agent','구현 → 검증 → 퇴보를 스스로 확인 → 즉시 반복 7 상태로 롤백.']]},
+  ];
+
+  var svgNS = 'http://www.w3.org/2000/svg';
+  var radialSvg = document.getElementById('radial-svg');
+  var cx = 180, cy = 180, r = 140;
+  var centerG = document.createElementNS(svgNS,'g');
+  centerG.setAttribute('class','rcenter');
+  centerG.setAttribute('text-anchor','middle');
+  centerG.innerHTML = '<text x="180" y="176" class="rc-big" text-anchor="middle">8</text><text x="180" y="198" class="rc-label" text-anchor="middle">ITERATIONS</text>';
+  radialSvg.appendChild(centerG);
+
+  // connecting circle
+  var circle = document.createElementNS(svgNS,'circle');
+  circle.setAttribute('cx',cx); circle.setAttribute('cy',cy); circle.setAttribute('r',r);
+  circle.setAttribute('fill','none'); circle.setAttribute('stroke','#1a2e2b'); circle.setAttribute('stroke-width','1'); circle.setAttribute('stroke-dasharray','2 5');
+  radialSvg.appendChild(circle);
+
+  var ticks = [];
+  iterations.forEach(function(it, i){
+    var angle = (-90 + (360/iterations.length) * i) * Math.PI/180;
+    var x = cx + r*Math.cos(angle);
+    var y = cy + r*Math.sin(angle);
+    var g = document.createElementNS(svgNS,'g');
+    g.setAttribute('class','rtick' + (it.critical ? ' critical' : ''));
+    g.setAttribute('transform','translate('+x+','+y+')');
+    var labelDx = Math.cos(angle) >= 0 ? 16 : -16;
+    var anchor = Math.cos(angle) >= 0 ? 'start' : 'end';
+    g.innerHTML = '<circle r="15"></circle>' +
+      '<text x="'+labelDx+'" y="4" text-anchor="'+anchor+'">' + (i+1) + '. ' + it.label + '</text>';
+    g.addEventListener('click', function(){ selectIteration(i); });
+    radialSvg.appendChild(g);
+    ticks.push(g);
+  });
+
+  var riTag = document.getElementById('ri-tag');
+  var riTitle = document.getElementById('ri-title');
+  var riTurns = document.getElementById('ri-turns');
+  var riMetric = document.getElementById('ri-metric');
+
+  function selectIteration(i){
+    ticks.forEach(function(t){ t.classList.remove('active'); });
+    ticks[i].classList.add('active');
+    var it = iterations[i];
+    riTag.textContent = '반복 ' + (i+1) + ' / 8';
+    riTitle.textContent = it.title;
+    riMetric.innerHTML = '<b>' + it.metric + '</b>';
+    riTurns.innerHTML = '';
+    it.turns.forEach(function(t){
+      var role = t[0], text = t[1];
+      var div = document.createElement('div');
+      div.className = 'turn ' + role;
+      div.innerHTML = '<div class="who">' + (role==='human' ? '사람' : 'Claude') + '</div><div class="bub">' + text + '</div>';
+      riTurns.appendChild(div);
+    });
+  }
+  selectIteration(0);
+})();
+</script>
+</body>
+</html>

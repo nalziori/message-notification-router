@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>AI와 함께 에이전트를 만든 이야기 — 메시지 알림 라우터 개발기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --surface-1:#14191b;
+    --page-plane:#0d1112;
+    --text-primary:#f5f6f4;
+    --text-secondary:#c3c2b7;
+    --muted:#8b968f;
+    --gridline:#2c3436;
+    --border: rgba(255,255,255,0.10);
+    --accent:#5fb8c0;
+    --accent-strong:#8fd4da;
+    --series-1:#3987e5;
+    --series-3:#199e70;
+    --series-4:#c98500;
+    --critical:#e66767;
+    --card:#1a2224;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page-plane);
+    color:var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-variant-numeric: proportional-nums;
+  }
+  .deck{ scroll-snap-type:y mandatory; overflow-y:auto; height:100vh; }
+  .slide{
+    scroll-snap-align:start;
+    width:100vw; min-height:100vh;
+    display:flex; flex-direction:column; justify-content:center;
+    padding: 6vh 9vw;
+    position:relative;
+    border-bottom:1px solid var(--gridline);
+    background:
+      radial-gradient(1200px 500px at 85% -10%, rgba(95,184,192,0.07), transparent 60%),
+      var(--surface-1);
+  }
+  .eyebrow{ color:var(--accent); font-size:0.85rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:14px; }
+  h1{ font-size:clamp(2.2rem, 4.6vw, 3.6rem); line-height:1.12; margin:0 0 18px 0; font-weight:800; letter-spacing:-0.01em; }
+  h2{ font-size:clamp(1.5rem, 2.8vw, 2.1rem); line-height:1.25; margin:0 0 8px 0; font-weight:800; letter-spacing:-0.01em; }
+  .slide-num{ position:absolute; top:6vh; right:9vw; color:var(--muted); font-size:0.85rem; font-variant-numeric: tabular-nums; }
+  .lead{ color:var(--text-secondary); font-size:1.1rem; line-height:1.6; max-width:70ch; margin:0 0 26px 0; }
+  .rule{ height:1px; background:linear-gradient(90deg, var(--accent), transparent); width:120px; margin: 0 0 24px 0; }
+  .grid{ display:grid; gap:18px; }
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px 22px; }
+  .card h3{ margin:0 0 8px 0; font-size:1rem; color:var(--accent-strong); font-weight:700; }
+  .card p{ margin:0; color:var(--text-secondary); font-size:0.92rem; line-height:1.55; }
+  .card ul{ margin:0; padding-left:18px; color:var(--text-secondary); font-size:0.92rem; line-height:1.6; }
+  ul.points{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; max-width:80ch; }
+  ul.points li{ padding-left:26px; position:relative; color:var(--text-secondary); font-size:1rem; line-height:1.6; }
+  ul.points li::before{ content:""; position:absolute; left:0; top:0.55em; width:8px; height:8px; border-radius:2px; background:var(--accent); }
+  ul.points b, .card p b, .lead b, .card ul b{color:var(--text-primary);}
+  code, .mono{ font-family: ui-monospace, Consolas, "SFMono-Regular", monospace; font-size:0.9em; background:rgba(255,255,255,0.06); padding:0.1em 0.4em; border-radius:5px; color:var(--accent-strong); }
+  .flow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:10px 0 30px 0; }
+  .flow .step{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-size:0.88rem; font-weight:600; color:var(--text-primary); }
+  .flow .arrow{color:var(--muted); font-size:1.1rem;}
+  table.cmp{ border-collapse:collapse; width:100%; font-size:0.88rem; }
+  table.cmp th{ text-align:left; color:var(--muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; padding:0 14px 10px 0; border-bottom:1px solid var(--gridline); }
+  table.cmp td{ padding:13px 14px 13px 0; border-bottom:1px solid var(--gridline); color:var(--text-secondary); vertical-align:top; line-height:1.5; }
+  table.cmp td.stage{ color:var(--accent-strong); font-weight:700; white-space:nowrap; }
+  table.cmp td.diff{color:var(--text-primary);}
+
+  /* standard architecture steps */
+  .archsteps{ display:flex; flex-direction:column; gap:12px; max-width:900px; }
+  .astep{ display:flex; gap:16px; align-items:flex-start; }
+  .astep .num{ flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--card); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.95rem; color:var(--accent-strong); }
+  .astep .body h4{ margin:0 0 3px 0; font-size:0.98rem; color:var(--text-primary); font-weight:700; }
+  .astep .body p{ margin:0; color:var(--text-secondary); font-size:0.88rem; line-height:1.5; }
+
+  .pillrow{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:22px;}
+  .pill{ background:rgba(95,184,192,0.12); border:1px solid rgba(95,184,192,0.35); color:var(--accent-strong); padding:6px 14px; border-radius:999px; font-size:0.85rem; font-weight:600; }
+
+  .callout{ border-left:3px solid var(--accent); background:rgba(95,184,192,0.07); padding:16px 22px; border-radius:0 10px 10px 0; color:var(--text-secondary); font-size:0.98rem; line-height:1.6; max-width:76ch; margin-top:10px; }
+  .callout.warn{border-left-color:var(--critical); background:rgba(230,103,103,0.08);}
+  .callout b{color:var(--text-primary);}
+  .bigstatement{ font-size:clamp(1.3rem,2.4vw,1.8rem); font-weight:700; color:var(--text-primary); line-height:1.4; max-width:78ch; margin: 6px 0 20px 0; }
+  .bigstatement em{color:var(--accent-strong); font-style:normal;}
+
+  .twocol{display:grid; grid-template-columns:1fr 1fr; gap:26px; max-width:1020px;}
+  .twocol h4{margin:0 0 12px 0; color:var(--accent-strong); font-size:1rem; font-weight:700; letter-spacing:0.02em;}
+
+  /* conversation reconstruction */
+  .convo{ display:flex; flex-direction:column; gap:12px; max-width:920px; }
+  .turn{ display:flex; gap:14px; align-items:flex-start; }
+  .turn .who{ flex-shrink:0; width:92px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; padding-top:12px; text-align:right; }
+  .turn.human .who{color:var(--muted);}
+  .turn.agent .who{color:var(--accent-strong);}
+  .bubble{ background:rgba(255,255,255,0.035); border:1px solid var(--border); border-radius:12px; padding:12px 18px; font-size:0.92rem; line-height:1.55; color:var(--text-secondary); flex:1; }
+  .turn.agent .bubble{ background:rgba(95,184,192,0.06); border-color:rgba(95,184,192,0.25); }
+  .bubble b{color:var(--text-primary);}
+  .takeaway{ margin-top:2px; color:var(--muted); font-size:0.82rem; font-style:italic; max-width:80ch; }
+  .notice{ font-size:0.78rem; color:var(--muted); border-top:1px solid var(--gridline); padding-top:10px; margin-top:16px; max-width:80ch; }
+
+  .stats{ display:flex; gap:16px; flex-wrap:wrap; }
+  .stat{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 20px; min-width:130px; }
+  .stat .num{ font-size:1.6rem; font-weight:800; color:var(--accent-strong); font-variant-numeric: tabular-nums; line-height:1; }
+  .stat .label{ margin-top:5px; color:var(--muted); font-size:0.8rem; }
+
+  .nav{ position:fixed; bottom:22px; right:9vw; display:flex; gap:10px; z-index:10; }
+  .nav button{ background:var(--card); border:1px solid var(--border); color:var(--text-primary); width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1rem; }
+  .nav button:hover{ border-color:var(--accent); }
+  .counter{ position:fixed; bottom:32px; left:9vw; color:var(--muted); font-size:0.85rem; z-index:10; font-variant-numeric: tabular-nums; }
+
+  @media print{
+    .nav, .counter{display:none;}
+    .deck{height:auto; overflow:visible;}
+    .slide{ page-break-after:always; min-height:100vh; border-bottom:none; }
+    @page{ size: landscape; margin:0; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1: TITLE -->
+  <section class="slide">
+    <div class="slide-num">01 / 14</div>
+    <div class="eyebrow">HackerRank Orchestrate · 2026년 8월 — AI 활용 개발기</div>
+    <h1>AI와 함께 에이전트를 만든 이야기</h1>
+    <p class="lead">메시지 알림 라우터가 <b>무엇인지</b>보다, Claude와 <b>어떻게</b> 협업해 그것을 만들었는지에 초점을 맞춘 발표. 표준 AI 에이전트 아키텍처와 실제 우리가 만든 시스템을 비교하고, 8번의 반복에서 사람과 Claude가 실제로 주고받은 판단의 흐름을 재구성한다.</p>
+    <div class="pillrow">
+      <span class="pill">8번의 반복</span>
+      <span class="pill">표준 에이전트 아키텍처와의 대응·차이</span>
+      <span class="pill">실제 협업 흐름 재구성</span>
+    </div>
+  </section>
+
+  <!-- 2: FRAMING -->
+  <section class="slide">
+    <div class="slide-num">02 / 14</div>
+    <div class="eyebrow">이 발표가 다루는 것</div>
+    <h2>프로젝트 결과보다, 협업 과정</h2>
+    <div class="twocol">
+      <div>
+        <h4>간단히만 다룬다</h4>
+        <ul class="points">
+          <li>메시지 알림 라우터가 정확히 무엇을 하는 시스템인지</li>
+          <li>파이프라인의 세부 구현(캐싱, 재시도 등)</li>
+          <li>최종 정확도 수치 — 부록으로만 언급</li>
+        </ul>
+      </div>
+      <div>
+        <h4>핵심으로 다룬다</h4>
+        <ul class="points">
+          <li>Claude와 실제로 어떤 판단·대화가 오갔는가</li>
+          <li>표준 AI 에이전트 아키텍처와 비교했을 때 무엇이 대응되고, 무엇이 다르거나 추가됐는가</li>
+          <li>8번의 피드백 루프에서 사람과 Claude가 각각 무엇을 맡았는가</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3: PROJECT IN ONE SLIDE -->
+  <section class="slide">
+    <div class="slide-num">03 / 14</div>
+    <div class="eyebrow">프로젝트, 한 장으로</div>
+    <h2>무엇을 만들었나 (압축)</h2>
+    <p class="lead">WhatsApp 메시지를 수신자별로 <code>notify</code>(즉시)/<code>digest</code>(나중에)/<code>mute</code>(억제)로 개인화 라우팅하는 시스템.</p>
+    <div class="flow">
+      <div class="step">로컬 전처리</div><div class="arrow">→</div>
+      <div class="step">사용자별 컨텍스트 조립</div><div class="arrow">→</div>
+      <div class="step">Claude Sonnet 5 (JSON 스키마)</div><div class="arrow">→</div>
+      <div class="step">검증·fallback</div><div class="arrow">→</div>
+      <div class="step">output.csv</div>
+    </div>
+    <p class="lead" style="margin-bottom:0;">이 파이프라인 자체보다 — 이걸 <b>어떻게 Claude와 함께 설계했는지</b>가 이 발표의 본론이다.</p>
+  </section>
+
+  <!-- 4: STANDARD AGENT ARCHITECTURE -->
+  <section class="slide">
+    <div class="slide-num">04 / 14</div>
+    <div class="eyebrow">참고 모델</div>
+    <h2>표준 AI 에이전트 아키텍처</h2>
+    <p class="lead">널리 쓰이는 LLM 에이전트 설계를 6개 요소로 정리하면 대략 이렇다 — 이후 슬라이드에서 이 6개를 우리 시스템과 하나씩 대응시킨다.</p>
+    <div class="archsteps">
+      <div class="astep"><div class="num">1</div><div class="body"><h4>지각 (Perception)</h4><p>원시 입력(텍스트·이미지·음성 등)을 모델이 다룰 수 있는 형태로 정규화</p></div></div>
+      <div class="astep"><div class="num">2</div><div class="body"><h4>기억 (Memory)</h4><p>단기 작업 컨텍스트 + 장기/외부 지식에 대한 검색</p></div></div>
+      <div class="astep"><div class="num">3</div><div class="body"><h4>계획·추론 (Planning / Reasoning)</h4><p>목표를 하위 작업으로 분해하고, 사고 과정을 명시화</p></div></div>
+      <div class="astep"><div class="num">4</div><div class="body"><h4>도구 사용·행동 (Tool Use / Action)</h4><p>외부 API·DB·코드 실행으로 환경에 직접 개입</p></div></div>
+      <div class="astep"><div class="num">5</div><div class="body"><h4>관찰 → 재계획 (Observe → Replan)</h4><p>행동 결과를 보고 다음 스텝을 결정, 목표 달성까지 반복하는 루프</p></div></div>
+      <div class="astep"><div class="num">6</div><div class="body"><h4>출력·자기평가 (Output / Self-eval)</h4><p>최종 산출물 생성 + 피드백으로 스스로 개선</p></div></div>
+    </div>
+  </section>
+
+  <!-- 5: MAPPING TABLE -->
+  <section class="slide">
+    <div class="slide-num">05 / 14</div>
+    <div class="eyebrow">대응표</div>
+    <h2>표준 요소 ↔ 우리가 만든 시스템</h2>
+    <table class="cmp">
+      <tr><th>표준 요소</th><th>우리 시스템의 대응</th><th>비고</th></tr>
+      <tr><td class="stage">1. 지각</td><td>image_pipeline.py / audio_pipeline.py — OCR·설명, 음성 전사</td><td>표준과 거의 동일</td></tr>
+      <tr><td class="stage">2. 기억</td><td>db.py(SQLite) + pull_context()의 규칙 기반 검색(발신자&gt;그룹&gt;비즈니스&gt;최신순)</td><td class="diff">임베딩 대신 설명 가능한 휴리스틱으로 대체 — 데이터 규모가 작아 충분</td></tr>
+      <tr><td class="stage">3. 계획·추론</td><td>내부 스키마 필드(sender_trust 등)를 최종 판단 전에 강제로 채움</td><td class="diff">자유형식 Thought 대신 카테고리형 필드로 구조화</td></tr>
+      <tr><td class="stage">4. 도구 사용</td><td>없음 — LLM은 이미 조립된 컨텍스트에 대해 1회 분류만 수행</td><td class="diff">가장 큰 차이 — 다음 슬라이드에서 설명</td></tr>
+      <tr><td class="stage">5. 관찰→재계획</td><td>런타임엔 없음(재시도만); 개발 단계에서 사람+Claude가 8회 수행</td><td class="diff">루프의 위치가 inference-time이 아니라 build-time</td></tr>
+      <tr><td class="stage">6. 출력·자기평가</td><td>to_output_row() + code/evaluation/ 자동 채점 하네스</td><td>대응되지만 런타임이 아닌 오프라인 배치 평가</td></tr>
+    </table>
+  </section>
+
+  <!-- 6: BIGGEST DIFFERENCE -->
+  <section class="slide">
+    <div class="slide-num">06 / 14</div>
+    <div class="eyebrow">가장 큰 차이</div>
+    <h2>런타임에 자율 도구 호출 루프가 없다</h2>
+    <p class="lead">표준 에이전트는 실행 중 LLM이 스스로 어떤 도구를 쓸지 고르고, 결과를 보고, 다시 판단하는 다단계 루프(ReAct류)를 돈다. 우리 라우터는 그렇게 하지 않았다 — 도구 호출(DB 조회, 미디어 분석)을 LLM 호출 <b>이전에</b> 결정론적 파이프라인이 전부 끝내고, LLM은 이미 조립된 컨텍스트에 대해 딱 한 번, JSON 스키마로 제약된 분류만 한다.</p>
+    <div class="callout"><b>왜 자유도를 뺐는가:</b> 같은 입력엔 같은 종류의 근거로 판단해야 하는 신뢰성, 무엇을 보고 판단했는지 항상 재현 가능해야 하는 평가 가능성, 메시지당 여러 번의 도구 호출 대신 파이프라인 1회+LLM 호출 1회로 끝내는 비용/지연, 그리고 결정론적 동작을 요구하는 제출 규약 — 이 네 가지 때문에 의도적으로 자유 루프를 배제했다.</div>
+  </section>
+
+  <!-- 7: TRANSITION - the real loop -->
+  <section class="slide">
+    <div class="slide-num">07 / 14</div>
+    <div class="eyebrow">그런데</div>
+    <h2>진짜 에이전트 루프는 다른 곳에 있었다</h2>
+    <p class="bigstatement">표준 아키텍처 5번, <em>관찰 → 재계획 루프</em>가 사라진 게 아니라 — <em>런타임이 아니라 개발 타임</em>으로 옮겨갔다.</p>
+    <p class="lead" style="margin-bottom:8px;">사람이 결과를 <b>관찰</b>하고 → 무엇을 할지 <b>계획</b>하면 → Claude Code가 원인을 조사하고 <b>실행</b>하고 → 평가 하네스로 <b>검증</b>하고 → 반영하거나 <b>롤백</b>한다. 이 루프를 8번 돌렸다.</p>
+    <div class="notice">다음 슬라이드들은 CLAUDE.ko.md에 기록된 실제 반복·의사결정 로그를 사람–Claude 대화 형식으로 재구성한 것이며, 원문 채팅 로그 그대로의 캡처는 아니다.</div>
+  </section>
+
+  <!-- 8: CONVO 1 -->
+  <section class="slide">
+    <div class="slide-num">08 / 14</div>
+    <div class="eyebrow">협업 흐름 · 반복 1</div>
+    <h2>버그를 스스로 발견하고 고치다</h2>
+    <div class="convo">
+      <div class="turn human"><div class="who">사람</div><div class="bubble">"<code>route --limit 3</code>로 먼저 작게 테스트해보자."</div></div>
+      <div class="turn agent"><div class="who">Claude</div><div class="bubble">실행 결과 0/3, 그것도 비정상적으로 빨리 끝난 걸 스스로 이상하게 여김 → 로그 확인 → <b>ThreadPoolExecutor 워커들이 SQLite 커넥션 하나를 공유</b>하고 있던 게 원인임을 특정 → 워커마다 자기 커넥션을 열도록 수정 → 재실행 3/3 성공을 보고.</div></div>
+    </div>
+    <p class="takeaway">사람은 "작게 먼저 테스트하자"는 방향만 줬고, 원인 조사부터 수정까지는 Claude가 스스로 수행했다.</p>
+  </section>
+
+  <!-- 9: CONVO 2 -->
+  <section class="slide">
+    <div class="slide-num">09 / 14</div>
+    <div class="eyebrow">협업 흐름 · 반복 3</div>
+    <h2>채점이 이상하다는 걸 스스로 알아채다</h2>
+    <div class="convo">
+      <div class="turn human"><div class="who">사람</div><div class="bubble">"30건 정답 세트 기준으로 채점해줘."</div></div>
+      <div class="turn agent"><div class="who">Claude</div><div class="bubble">채점 결과가 <b>0/30</b>으로 나오는 걸 이상하게 여김 → id 체계를 조사해 <code>sample_messages.csv</code>(sample_msg_*)와 <code>messages.csv</code>(msg_*)가 서로 다른 네임스페이스임을 발견 → 채점 스크립트를 sample_messages.csv 자신의 입력으로 라우터를 직접 돌리는 방식으로 재작성 → 기준선 action 90% · type 63% · F1 49%를 보고.</div></div>
+    </div>
+    <p class="takeaway">겉보기엔 사소한 채점 스크립트 문제였지만, "결과가 이상하다"를 감지하고 끝까지 원인을 추적한 건 Claude였다.</p>
+  </section>
+
+  <!-- 10: CONVO 3 -->
+  <section class="slide">
+    <div class="slide-num">10 / 14</div>
+    <div class="eyebrow">협업 흐름 · 반복 5</div>
+    <h2>사람이 방향을 주면, Claude가 근거를 찾는다</h2>
+    <div class="convo">
+      <div class="turn human"><div class="who">사람</div><div class="bubble">"message_type 정확도(63%)가 낮은데, 이거 개선해줘."</div></div>
+      <div class="turn agent"><div class="who">Claude</div><div class="bubble">혼동행렬을 만들어 오답이 어디 몰려있는지 확인 → <b>event / promotion / greeting</b> 카테고리의 실제 오답 텍스트를 전부 정독 → 이 데이터셋만의 분류 관습 4가지를 규칙으로 도출·반영 → <b>63%→90%</b> 개선을 보고.</div></div>
+    </div>
+    <p class="takeaway">사람은 "무엇을" 개선할지 지정했고, "어떻게"(원인 진단과 일반화 가능한 규칙 도출)는 Claude의 몫이었다.</p>
+  </section>
+
+  <!-- 11: CONVO 4 -->
+  <section class="slide">
+    <div class="slide-num">11 / 14</div>
+    <div class="eyebrow">협업 흐름 · 반복 7</div>
+    <h2>사람이 패턴을 보고, Claude가 구조로 만든다</h2>
+    <div class="convo">
+      <div class="turn human"><div class="who">사람</div><div class="bubble">"정답이 digest인데 notify로 틀린 경우가 많고, 틀린 답들의 confidence가 낮아 보여 — 이거 활용할 수 없을까?"</div></div>
+      <div class="turn agent"><div class="who">Claude</div><div class="bubble">실측으로 확인(정답 평균 confidence 0.85 vs 오답 0.70) → 최종 판단 전에 반드시 채워야 하는 <b>내부 전용 스키마 필드 5개</b> 설계·구현 + "애매하면 digest 기본값" 규칙 추가 → 이전 오답 7건만 먼저 저비용 검증(3건 수정 확인) → 30건 전체로 재확인 → <b>86.67%→93.33%</b>를 보고.</div></div>
+    </div>
+    <p class="takeaway">사람의 관찰(패턴)을 Claude가 구체적인 스키마 설계로 번역했다.</p>
+  </section>
+
+  <!-- 12: CONVO 5 -->
+  <section class="slide">
+    <div class="slide-num">12 / 14</div>
+    <div class="eyebrow">협업 흐름 · 반복 8</div>
+    <h2>실패를 스스로 인정하고 되돌리다</h2>
+    <div class="convo">
+      <div class="turn human"><div class="who">사람</div><div class="bubble">"type_candidates에 각 후보를 뒷받침하는 실제 문구(key_phrase)도 추출하게 해보면 어떨까?"</div></div>
+      <div class="turn agent"><div class="who">Claude</div><div class="bubble">구현 → 30건으로 검증 → <b>93.33%→86.67%</b>로 퇴보한 것을 스스로 확인 → 개선이 아니라 퇴보라고 먼저 보고하고, 반복 7 상태로 즉시 되돌림 → 110건 재분류.</div></div>
+    </div>
+    <p class="takeaway">그럴듯한 제안도 측정 없이 채택하지 않는다 — Claude가 스스로 반박 근거를 찾아 되돌린 사례.</p>
+  </section>
+
+  <!-- 13: ROLE SPLIT -->
+  <section class="slide">
+    <div class="slide-num">13 / 14</div>
+    <div class="eyebrow">역할 분담</div>
+    <h2>사람이 한 일 / Claude가 한 일</h2>
+    <div class="twocol">
+      <div>
+        <h4>사람이 한 일</h4>
+        <ul class="points">
+          <li>결과를 직접 읽고 패턴을 발견 (digest→notify 편향, confidence–정확도 상관관계)</li>
+          <li>개선 방향과 우선순위 제시 ("message_type 정확도부터 고쳐줘")</li>
+          <li>제안된 다음 아이디어를 승인 (key_phrase 확장)</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Claude가 한 일</h4>
+        <ul class="points">
+          <li>버그·이상 신호를 스스로 감지하고 원인을 끝까지 조사</li>
+          <li>가설을 구조(스키마·규칙)로 구현하고 측정으로 검증</li>
+          <li>퇴보를 스스로 확인하고 먼저 보고한 뒤 즉시 롤백</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14: CONCLUSION -->
+  <section class="slide">
+    <div class="slide-num">14 / 14</div>
+    <div class="eyebrow">결론</div>
+    <h2>이 협업에서 배운 것</h2>
+    <p class="bigstatement">가장 중요한 산출물은 <em>output.csv</em>가 아니라, "관찰→가설→구현→검증→반영or롤백"을 8번 반복한 <em>개발 루프 그 자체</em>였다.</p>
+    <p class="lead">표준 에이전트 아키텍처가 설명하는 자율 루프를, 이 프로젝트는 런타임 대신 <b>Claude Code와의 협업</b>이라는 형태로 개발 타임에 구현한 셈이다.</p>
+    <div class="stats">
+      <div class="stat"><div class="num">93.33%</div><div class="label">action 정확도 (부록)</div></div>
+      <div class="stat"><div class="num">93.33%</div><div class="label">message_type 정확도 (부록)</div></div>
+      <div class="stat"><div class="num">110/110</div><div class="label">output.csv 행 (부록)</div></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="counter" id="counter">1 / 14</div>
+<div class="nav">
+  <button id="prevBtn" aria-label="이전 슬라이드">‹</button>
+  <button id="nextBtn" aria-label="다음 슬라이드">›</button>
+</div>
+
+<script>
+  const deck = document.getElementById('deck');
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const counter = document.getElementById('counter');
+  function currentIndex(){
+    let idx = 0, best = Infinity;
+    slides.forEach((s,i)=>{ const d = Math.abs(s.getBoundingClientRect().top); if(d < best){ best = d; idx = i; } });
+    return idx;
+  }
+  function updateCounter(){ counter.textContent = (currentIndex()+1) + ' / ' + slides.length; }
+  function goTo(i){ i = Math.max(0, Math.min(slides.length-1, i)); slides[i].scrollIntoView({behavior:'smooth'}); }
+  deck.addEventListener('scroll', ()=>{ window.requestAnimationFrame(updateCounter); });
+  document.getElementById('prevBtn').addEventListener('click', ()=> goTo(currentIndex()-1));
+  document.getElementById('nextBtn').addEventListener('click', ()=> goTo(currentIndex()+1));
+  window.addEventListener('keydown', (e)=>{
+    if(['ArrowDown','ArrowRight','PageDown',' '].includes(e.key)){ e.preventDefault(); goTo(currentIndex()+1); }
+    if(['ArrowUp','ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); goTo(currentIndex()-1); }
+  });
+  updateCounter();
+</script>
+</body>
+</html>

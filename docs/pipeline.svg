@@ -1,0 +1,131 @@
+<svg viewBox="0 0 1440 1020" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Malgun Gothic, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowDashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="1440" height="1020" fill="#f8fafc"/>
+
+  <text x="720" y="42" text-anchor="middle" font-size="24" font-weight="700" fill="#0f172a">
+    Message Notification Router — Preprocessing &amp; Query Pipeline
+  </text>
+  <text x="720" y="66" text-anchor="middle" font-size="13" fill="#64748b">
+    HackerRank Orchestrate · hackerrank-orchestrate-august26/code
+  </text>
+
+  <!-- ============ ROW 1: Sources ============ -->
+  <text x="40" y="105" font-size="13" font-weight="700" fill="#334155">1. 원본 데이터 (읽기 전용) / Sources (read-only)</text>
+
+  <rect x="40" y="118" width="220" height="72" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text x="150" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="#075985">dataset/*.csv</text>
+  <text x="150" y="167" text-anchor="middle" font-size="11.5" fill="#0369a1">13개 CSV (messages, users,</text>
+  <text x="150" y="182" text-anchor="middle" font-size="11.5" fill="#0369a1">groups, history, events...)</text>
+
+  <rect x="300" y="118" width="220" height="72" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="410" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="#92400e">dataset/media/images/</text>
+  <text x="410" y="167" text-anchor="middle" font-size="11.5" fill="#b45309">20개 (JPEG/PNG/WebP/AVIF —</text>
+  <text x="410" y="182" text-anchor="middle" font-size="11.5" fill="#b45309">확장자 신뢰 안 함)</text>
+
+  <rect x="560" y="118" width="220" height="72" rx="10" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
+  <text x="670" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="#9d174d">dataset/media/audio/</text>
+  <text x="670" y="167" text-anchor="middle" font-size="11.5" fill="#be185d">13개 음성 메모 (.mp3)</text>
+
+  <!-- ============ ROW 2: Preprocessing ============ -->
+  <text x="40" y="250" font-size="13" font-weight="700" fill="#334155">2. 전처리 파이프라인 (최초 1회 분석, 이후 캐시) / Preprocessing (analyze once, cache after)</text>
+
+  <rect x="40" y="264" width="220" height="86" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="150" y="292" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">db.py</text>
+  <text x="150" y="310" text-anchor="middle" font-size="11.5" fill="#1e40af">CSV → SQLite</text>
+  <text x="150" y="325" text-anchor="middle" font-size="11.5" fill="#1e40af">(전체 컬럼 TEXT, join 키 인덱싱)</text>
+  <text x="150" y="340" text-anchor="middle" font-size="10.5" fill="#3b82f6">실행마다 재구축 (읽기전용 소스)</text>
+
+  <rect x="300" y="264" width="220" height="86" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="410" y="286" text-anchor="middle" font-size="14" font-weight="600" fill="#92400e">image_pipeline.py</text>
+  <text x="410" y="304" text-anchor="middle" font-size="11" fill="#b45309">Pillow 디코드(모든 포맷) →</text>
+  <text x="410" y="319" text-anchor="middle" font-size="11" fill="#b45309">리사이즈 → JPEG 재인코딩 →</text>
+  <text x="410" y="334" text-anchor="middle" font-size="11" fill="#b45309">Claude Sonnet 5 비전(OCR+설명+분류)</text>
+  <text x="410" y="348" text-anchor="middle" font-size="10.5" fill="#c2410c">원본 파일은 절대 수정 안 함</text>
+
+  <rect x="560" y="264" width="220" height="86" rx="10" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
+  <text x="670" y="286" text-anchor="middle" font-size="14" font-weight="600" fill="#9d174d">audio_pipeline.py</text>
+  <text x="670" y="304" text-anchor="middle" font-size="11" fill="#be185d">TranscriptionProvider 추상화</text>
+  <text x="670" y="319" text-anchor="middle" font-size="11" fill="#be185d">→ LocalWhisperProvider</text>
+  <text x="670" y="334" text-anchor="middle" font-size="11" fill="#be185d">(faster-whisper, 시스템 ffmpeg 불필요)</text>
+  <text x="670" y="348" text-anchor="middle" font-size="10.5" fill="#a21caf">Anthropic API는 오디오 직접입력 미지원</text>
+
+  <rect x="820" y="264" width="200" height="86" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="920" y="292" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">cache.py</text>
+  <text x="920" y="310" text-anchor="middle" font-size="11" fill="#475569">콘텐츠 해시 캐시</text>
+  <text x="920" y="325" text-anchor="middle" font-size="11" fill="#475569">동시성(3-5) + 지수 백오프 재시도</text>
+  <text x="920" y="340" text-anchor="middle" font-size="10.5" fill="#64748b">image/audio 파이프라인 공용</text>
+
+  <!-- ============ ROW 3: Storage ============ -->
+  <text x="40" y="435" font-size="13" font-weight="700" fill="#334155">3. 로컬 저장소 / Local storage (data/, gitignored)</text>
+
+  <rect x="40" y="449" width="220" height="70" rx="10" fill="#e2e8f0" stroke="#475569" stroke-width="1.5"/>
+  <text x="150" y="475" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">data/processed.db</text>
+  <text x="150" y="493" text-anchor="middle" font-size="11.5" fill="#334155">SQLite (13개 테이블)</text>
+
+  <rect x="300" y="449" width="220" height="70" rx="10" fill="#e2e8f0" stroke="#475569" stroke-width="1.5"/>
+  <text x="410" y="475" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">data/cache/images/*.json</text>
+  <text x="410" y="493" text-anchor="middle" font-size="11.5" fill="#334155">설명 + OCR + 문서유형</text>
+
+  <rect x="560" y="449" width="220" height="70" rx="10" fill="#e2e8f0" stroke="#475569" stroke-width="1.5"/>
+  <text x="670" y="475" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">data/cache/audio/*.json</text>
+  <text x="670" y="493" text-anchor="middle" font-size="11.5" fill="#334155">전사 텍스트 + 연결된 메시지 ID</text>
+
+  <!-- ============ ROW 4: Query ============ -->
+  <text x="40" y="590" font-size="13" font-weight="700" fill="#334155">4. 질의 처리 / Query (구현 완료)</text>
+
+  <rect x="40" y="604" width="480" height="86" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="280" y="628" text-anchor="middle" font-size="14" font-weight="600" fill="#14532d">query.py</text>
+  <text x="280" y="648" text-anchor="middle" font-size="11.5" fill="#166534">질문 → SQLite+캐시에서 키워드 매칭 상위 검색 →</text>
+  <text x="280" y="664" text-anchor="middle" font-size="11.5" fill="#166534">최소 컨텍스트만 Claude에 전달 → 답변 + evidence_message_ids</text>
+  <text x="280" y="681" text-anchor="middle" font-size="10.5" fill="#15803d">전체 데이터셋을 매번 다시 보내지 않음</text>
+
+  <!-- ============ ROW 5: CLI ============ -->
+  <text x="40" y="745" font-size="13" font-weight="700" fill="#334155">5. CLI / 오케스트레이션</text>
+
+  <rect x="40" y="759" width="1000" height="70" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="60" y="785" font-size="14" font-weight="600" fill="#4c1d95">main.py</text>
+  <text x="60" y="805" font-size="11.5" fill="#5b21b6">validate (네트워크 호출 없음) · preprocess [--dry-run] [--limit N] · retry-failed · cache-status · query "질문"</text>
+
+  <!-- ============ ROW 6: Future ============ -->
+  <text x="40" y="900" font-size="13" font-weight="700" fill="#334155">6. 다음 단계 (미구현) / Next phase (not yet built)</text>
+
+  <rect x="40" y="914" width="1000" height="70" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="60" y="940" font-size="14" font-weight="600" fill="#991b1b">routing / classifier (code/main.py 라우터 본체)</text>
+  <text x="60" y="960" font-size="11.5" fill="#b91c1c">Storage + Query 계층을 컨텍스트로 사용해 각 메시지에 action(notify/digest/mute) + message_type 판정 → dataset/output.csv 작성</text>
+
+  <!-- ============ ARROWS ============ -->
+  <!-- Sources -> Preprocessing -->
+  <line x1="150" y1="190" x2="150" y2="264" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="410" y1="190" x2="410" y2="264" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="670" y1="190" x2="670" y2="264" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- cache.py <-> image/audio pipelines -->
+  <line x1="520" y1="307" x2="820" y2="307" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowDashed)"/>
+  <line x1="820" y1="317" x2="780" y2="317" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowDashed)"/>
+
+  <!-- Preprocessing -> Storage -->
+  <line x1="150" y1="350" x2="150" y2="449" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="410" y1="350" x2="410" y2="449" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="670" y1="350" x2="670" y2="449" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Storage -> Query -->
+  <path d="M150,519 L150,560 L280,560 L280,604" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M410,519 L410,560 L280,560" fill="none" stroke="#475569" stroke-width="2"/>
+  <path d="M670,519 L670,560 L280,560" fill="none" stroke="#475569" stroke-width="2"/>
+
+  <!-- Query -> CLI, Preprocessing -> CLI (CLI orchestrates both) -->
+  <line x1="280" y1="690" x2="280" y2="759" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M150,350 L1250,350 L1250,794 L1040,794" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrowDashed)"/>
+  <text x="1255" y="345" font-size="10" fill="#94a3b8">main.py가 preprocess 단계 호출</text>
+
+  <!-- CLI -> Future -->
+  <line x1="540" y1="829" x2="540" y2="914" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowDashed)"/>
+</svg>
