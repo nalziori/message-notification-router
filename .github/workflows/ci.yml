@@ -1,0 +1,32 @@
+name: CI
+
+# Runs entirely on the fixture dataset (fixtures/) -- no ANTHROPIC_API_KEY, no
+# organizer dataset, no network beyond checkout/dependency install. See
+# "Try it without the dataset or an API key" in README.md for what these two
+# scripts actually exercise.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # anthropic: router.py imports it unconditionally (type hints) even
+      # though the CI path never calls the API. python-dotenv: config.py
+      # loads .env unconditionally. Neither faster-whisper nor Pillow is on
+      # this import path -- audio/image pipelines aren't exercised offline.
+      - run: pip install anthropic python-dotenv
+
+      - name: AEL ledger self-check
+        run: python code/test_ael_client.py
+
+      - name: Offline pipeline smoke test (fixture dataset, fake model client)
+        run: python fixtures/smoke_test.py

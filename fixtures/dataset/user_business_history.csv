@@ -1,0 +1,4 @@
+user_id,business_id,why_user_knows_account,last_activity_at,allows_promotions,promotions_opted_out_at,activity_count_180d,messages_opened_30d,messages_dismissed_30d,messages_replied_30d,last_reply_at
+u_001,business_001,recent_parcel_delivery,2026-07-29 14:02,0,,7,6,1,0,
+u_008,business_011,repeat_customer,2026-07-26 19:41,1,,14,11,2,1,2026-06-30 20:10
+u_002,business_011,single_purchase_last_year,2026-02-14 11:20,0,2026-03-02 09:00,2,1,5,0,

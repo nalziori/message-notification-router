@@ -1,0 +1,20 @@
+message_id,action,message_type,note
+synth_msg_01,notify,personal,
+synth_msg_02,notify,urgent,
+synth_msg_03,digest,unknown,"This message seems like parent's group chatting room. It is just a notification for parents to change plan to pick up their kids according to changed plan. I think it's not personal, not urgent. And group chat notifications are usually classified as digest. But it can be notify in this message."
+synth_msg_04,digest,personal,"It seems like personal sales message, but not scam or spam. This chat room is school parents chat room so not scam or spam. Not a notification, personal sales message."
+synth_msg_05,digest,greeting,
+synth_msg_06,digest,forward,
+synth_msg_08,digest,business_update,
+synth_msg_09,mute,scam,
+synth_msg_10,mute,scam,"Bulk blast (6100 msgs/30d) so spam is arguable, but it asks for personal details behind a prize lure on a 26-day-old domain -- fraud intent tips it to scam."
+synth_msg_11,digest,unknown,"Reads like a genuine reply to the user's own tutoring post (would be personal), but u_090 has no group, no business tie and zero history here, so unknown is the safer call."
+synth_msg_12,notify,urgent,
+synth_msg_13,digest,business_update,
+synth_msg_14,mute,spam,"forwarded_count=47 through the family group, but it is chain-letter prize bait, not the informational forwards u_007 usually sends -- spam rather than forward; scam is arguable since it dangles a free iPhone behind a link."
+synth_msg_15,mute,promotion,
+synth_msg_16,mute,scam,
+synth_msg_17,digest,event,"Sunday dinner is days away so digest, but u_013's last invite (fx_h_008) was opened and replied to, so notify is defensible for a high-engagement family sender."
+synth_msg_18,digest,personal,"The transcript says ""nothing urgent, call whenever"" and today's load is already 31 sent / 11 dismissed, so digest -- but u_017 is opened+replied 3/3 in history, so notify is arguable."
+synth_msg_19,notify,urgent,
+synth_msg_20,mute,scam,

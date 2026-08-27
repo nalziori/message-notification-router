@@ -1,0 +1,22 @@
+message_id,user_id,conversation_type,group_id,business_id,sender_user_id,created_at,message_text,media_type,media_id,forwarded_count
+fx_h_001,u_002,personal,,,u_017,2026-07-30 19:12,"Dinner moved to 8:30, does that still work?",,,0
+fx_h_002,u_002,personal,,,u_017,2026-07-28 08:40,"Left the keys with the neighbour, no rush picking them up.",,,0
+fx_h_003,u_002,personal,,,u_017,2026-07-21 22:05,Can you call when you get a second? Bit of a situation here.,,,0
+fx_h_004,u_002,group,group_001,,u_007,2026-07-29 07:15,"Fwd: Ten foods that cleanse your liver overnight, share with loved ones.",,,12
+fx_h_005,u_002,group,group_001,,u_007,2026-07-24 06:58,"Fwd: Warning about a new phone scam going around, please forward.",,,31
+fx_h_006,u_002,group,group_001,,u_007,2026-07-18 07:02,Fwd: Miracle cure they don't want you to know about!!,,,44
+fx_h_007,u_002,group,group_001,,u_013,2026-07-27 09:30,"Good morning all, wishing everyone a lovely week.",,,0
+fx_h_008,u_002,group,group_001,,u_013,2026-07-20 18:44,"Lunch at mine on Sunday, 1pm. Bring nothing, just come.",,,0
+fx_h_009,u_002,group,group_003,,u_045,2026-07-31 13:20,Reminder: swimming kit needed tomorrow for Route B children.,,,0
+fx_h_010,u_002,group,group_003,,u_045,2026-07-25 16:05,Bus will be 20 minutes late this afternoon due to roadworks.,,,0
+fx_h_011,u_002,group,group_003,,u_017,2026-07-22 12:33,Anyone have a spare uniform jumper age 9? Happy to pay.,,,0
+fx_h_012,u_002,business,,business_011,,2026-07-15 10:00,"Mid-season sale starts today, up to 40% off everything.",,,0
+fx_h_013,u_002,business,,business_011,,2026-06-28 10:00,Final hours! Sale ends midnight.,,,0
+fx_h_014,u_008,business,,business_011,,2026-07-26 19:40,"Your order has shipped, arriving Thursday.",,,0
+fx_h_015,u_008,business,,business_011,,2026-07-11 09:15,"New season pieces just landed, picked for you.",,,0
+fx_h_016,u_001,business,,business_001,,2026-07-29 14:00,"Out for delivery, arriving before 6pm today.",,,0
+fx_h_017,u_001,business,,business_001,,2026-07-14 11:31,Your parcel is ready for collection at the locker.,,,0
+fx_h_018,u_005,business,,business_062,,2026-07-30 03:12,Your account is at risk. Confirm your card PIN immediately to avoid closure.,,,0
+fx_h_019,u_005,business,,business_062,,2026-07-19 02:47,Security notice: verify your identity now or lose access.,,,0
+fx_h_020,u_005,business,,business_041,,2026-07-26 21:30,You are today's lucky winner! Claim within 1 hour.,,,0
+fx_h_021,u_005,personal,,,u_013,2026-07-23 17:10,Are you free to talk this evening?,,,0

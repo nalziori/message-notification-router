@@ -17,6 +17,7 @@ it and leaves the cache entry marked failed so `retry-failed` picks it up.
 
 import datetime
 import json
+import sqlite3
 from pathlib import Path
 
 import anthropic
@@ -181,6 +182,15 @@ def _row_or_none(conn, sql, params):
     return dict(r) if r else None
 
 
+def _row_or_none_if_table(conn, sql, params):
+    """_row_or_none, but treats a missing table as 'no row' instead of raising.
+    Only for lookups that have a legitimate fallback when the table is absent."""
+    try:
+        return _row_or_none(conn, sql, params)
+    except sqlite3.OperationalError:
+        return None
+
+
 def get_user_context(conn, user_id: str) -> dict | None:
     return _row_or_none(conn, 'SELECT * FROM users WHERE user_id = ?', (user_id,))
 
@@ -237,11 +247,15 @@ def get_media_context(conn, media_type: str, media_id: str) -> dict | None:
     media_id = (media_id or "").strip()
     if not media_type or not media_id:
         return None
+    # The manifest tables are absent when the DB was built from a dataset that
+    # carries no media (a fixture set, for instance). That is not an error --
+    # EXTRA_MEDIA_PATHS below is the documented fallback for exactly that case,
+    # so a missing table has to fall through to it rather than kill the lookup.
     if media_type == "image":
-        r = _row_or_none(conn, 'SELECT file_path FROM images WHERE image_id = ?', (media_id,))
+        r = _row_or_none_if_table(conn, 'SELECT file_path FROM images WHERE image_id = ?', (media_id,))
         cache_dir = config.IMAGE_CACHE_DIR
     elif media_type == "voice":
-        r = _row_or_none(conn, 'SELECT file_path FROM voice_notes WHERE voice_note_id = ?', (media_id,))
+        r = _row_or_none_if_table(conn, 'SELECT file_path FROM voice_notes WHERE voice_note_id = ?', (media_id,))
         cache_dir = config.AUDIO_CACHE_DIR
     else:
         return None

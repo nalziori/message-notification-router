@@ -1,0 +1,5 @@
+business_id,display_name,brand_name,category,verified,official_domain,domain_used_by_sender,account_age_days,messages_sent_30d,user_reports_30d,domain_used_by_sender_age_days
+business_001,ParcelPost,ParcelPost,ecommerce_delivery,1,parcelpost.example,parcelpost.example,1120,980,2,1120
+business_011,Aster Clothing,Aster,retail_fashion,1,aster.example,aster.example,742,415,1,742
+business_041,Prize Central,,unknown,0,,prizecentral-win.example,26,6100,214,26
+business_062,Meridian Bank,Meridian Bank,banking,0,meridianbank.example,meridian-bank-secure.example,41,3300,187,9

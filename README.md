@@ -1,5 +1,7 @@
 # Message Notification Router
 
+[![CI](https://github.com/nalziori/message-notification-router/actions/workflows/ci.yml/badge.svg)](https://github.com/nalziori/message-notification-router/actions/workflows/ci.yml)
+
 A personalized notify / digest / mute router for a WhatsApp-style message stream.
 For every incoming message — text, image poster, screenshot, or voice note — it
 decides whether to interrupt the user now, hold it for later, or suppress it,
@@ -166,12 +168,32 @@ unclear, so this repo ships the pipeline and the schema rather than the data.
 `dataset/output.csv` — this project's own 110-row result — is kept as evidence
 of the run.
 
-What *is* included is `eval/synthetic_cases.csv` and `eval/synthetic_media/`: 19
-test cases generated for this project using the Claude API and local Pillow/SAPI
-rendering, modeled on the real data's shape. They reference organizer entity ids,
-so they still need `dataset/` present to resolve context.
+### Try it without the dataset or an API key
 
-With the dataset in place:
+```bash
+pip install anthropic python-dotenv   # imported at module load; never called or needed live
+python fixtures/smoke_test.py
+```
+
+`fixtures/` is a small, entirely invented dataset (70 rows across 8 context
+tables — users, groups, business relationships, message history) built to
+resolve the 19 held-out synthetic test cases from `eval/synthetic_cases.csv`
+without the organizer data. Those cases were originally written reusing real
+organizer entity ids for convenience, which is exactly what stopped them
+running once the organizer data was excluded — `fixtures/build_fixtures.py`
+is what closes that gap.
+
+The smoke test runs the real pipeline end to end — context assembly, JSON
+response parsing, label validation, the AEL ledger's full Planning→State
+write, output.csv generation, and the official schema check — against a fake
+model client (`fixtures/fake_client.py`) that returns the fixture's own
+labels instead of calling the API. It proves the code runs correctly, not
+that the router is accurate; routing quality still needs the real dataset and
+a key. Labels in `fixtures/expected_labels.csv` were assigned by a human
+reading each case's assembled context (not the message text alone) —
+`note` on 7 of the 19 records why the call was genuinely close.
+
+### With the real dataset and an API key
 
 ```bash
 py -3.12 -m venv .venv     # ctranslate2 wheels lag very new Python releases
@@ -208,6 +230,7 @@ force-reclassifies by default for exactly this reason.
 ## Layout
 
 ```
+.github/workflows/ci.yml   runs the two lines below on every push (fixture dataset only)
 code/
   main.py               CLI: validate | preprocess | route | retry-failed | cache-status | query
   router.py             the deliverable — context assembly + classification
@@ -221,6 +244,7 @@ code/
   test_ael_client.py    ledger self-check
   evaluation/           scoring harness (EN/KO) — single source of truth
 eval/                   held-out synthetic test set + HTML report
+fixtures/               standalone dataset + offline smoke test (no key, no organizer data)
 docs/                   architecture diagram, workflow reports
 CLAUDE.en.md/.ko.md     design brief, eval loop log, decision log
 log.txt                 the hackathon session transcript
