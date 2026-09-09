@@ -1,0 +1,3 @@
+# eval/synthetic_test_report.html is 1.4MB of generated report — without this,
+# GitHub's language badge reads "HTML" for what is a Python project.
+*.html linguist-documentation

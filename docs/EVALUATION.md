@@ -70,11 +70,55 @@ results: a `key_phrase` grounding field that sounded reasonable, regressed
 accuracy 93.33% → 86.67%, and was reverted; and a stale-cache incident where
 routing decisions cached under an old prompt kept scoring the old prompt.
 
+## Where the evidence-F1 bottleneck actually is
+
+An external review of this repo prescribed a reranker (BM25/embedding/LLM) as the
+top fix for the ~50% evidence F1. Before building it, `eval/evidence_retrieval_ablation.py`
+measured whether retrieval was the bottleneck at all — with zero API calls.
+
+`router.get_relevant_history()` scores candidates by relationship (same sender +3,
+same group +2, same business +2) and passes only the top 12; `valid_evidence_ids`
+then restricts the model to that pool. So if a gold evidence id isn't in the top 12,
+F1 cannot improve no matter how the prompt changes. That recall is computable offline.
+
+| ranker | @5 | @12 | @all |
+|---|---|---|---|
+| rule (current) | 81% | **97%** | 100% |
+| bm25 | 90% | 100% | 100% |
+| hybrid (relationship first, BM25 as tiebreak) | 90% | 100% | 100% |
+
+Of 31 gold evidence ids, 0 were missing from the user's history — the candidate-set
+ceiling is 100%, and the current ranker already reaches 97% of it. **Retrieval was
+not the bottleneck.** A perfect reranker was worth at most 3 points here.
+
+Scoring the *selection* step the same way found the real leak: gold answers carry
+1.03 evidence ids on average, the router emits 2.93 (2.8x). On the 30 solved
+examples that is precision 28% / recall 81% / **F1 42%**. Capping the list at one
+id moves it to 48% / 45% / **47%**.
+
+Three caveats, because this is a measurement and not a shipped fix:
+
+- **This 42% is not the ~48–52% quoted above.** That figure is over all 110
+  messages; this one is the 30-sample subset. They are not interchangeable.
+- **The cap was not applied to the router.** It trades recall 81% → 45%, and it
+  was tuned on n=30 — structurally the same trap as the Iteration 8 regression.
+  Confirming it on the held-out set has to come first.
+- **Precision is still only 48% even at top-1**, so ranking quality is a second,
+  separate problem. Reranking isn't useless — it's aimed at the wrong stage. It
+  belongs on selection order, not on the candidate set. (Unmeasured; needs API calls.)
+
+```bash
+python eval/evidence_retrieval_ablation.py            # needs dataset/ (not shipped)
+python eval/evidence_retrieval_ablation.py --selftest # no data, no API calls
+```
+
 ## Known limits
 
 - Evidence F1 (~48–52%) lags accuracy. Retrieval is a hand-scored heuristic
   (same sender > same group > same business > recency, capped at 12); it finds
-  relevant history but not always the exact ids the grader wants.
+  relevant history but not always the exact ids the grader wants. The section
+  above locates the leak in selection rather than retrieval, but the fix it
+  points at is measured, not applied.
 - `spam` vs `scam` and `event` vs `urgent` stayed genuinely ambiguous across
   both eval sets. Both readings are defensible on the actual message content;
   chasing it further meant overfitting to small-sample noise.
